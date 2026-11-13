@@ -1,0 +1,12 @@
+file,kind,expected,expected_reason,true_inner_diameter_mm,how_truth_was_obtained,notes
+synthetic/synthetic-01-flat-overhead.jpg,synthetic,measure,,17.30,render parameter (scripts/synth.py),flat printed-style annulus; overhead
+synthetic/synthetic-02-ring-h3-tilt4.jpg,synthetic,measure,,18.90,render parameter (scripts/synth.py),ring 3 mm tall; 4 deg tilt; sheet rotated 20 deg
+synthetic/synthetic-03-wide-band-h6-offaxis.jpg,synthetic,measure,,16.50,render parameter (scripts/synth.py),ring 6 mm tall; camera centred on marker not ring; 6 deg tilt
+synthetic/synthetic-04-cutout-card-uneven-light.jpg,synthetic,measure,,20.00,render parameter (scripts/synth.py),circular cut-out in dark card; strong light gradient
+synthetic/synthetic-05-ring-glare-soft.jpg,synthetic,measure,,15.70,render parameter (scripts/synth.py),glare streak; slightly soft; 30 cm
+synthetic/synthetic-06-two-rings.jpg,synthetic,choose,,16.10|19.40,render parameter (scripts/synth.py),ambiguity: two rings; app must ask which one
+synthetic/synthetic-07-steep-angle.jpg,synthetic,retake,PERSPECTIVE,17.30,render parameter (scripts/synth.py),28 deg tilt (unsupported)
+synthetic/synthetic-08-out-of-focus.jpg,synthetic,retake,BLURRY,17.30,render parameter (scripts/synth.py),defocus blur (unsupported)
+synthetic/synthetic-09-no-marker.jpg,synthetic,retake,NO_MARKER,17.30,render parameter (scripts/synth.py),no scale marker (unsupported)
+synthetic/synthetic-10-motion-blur.jpg,synthetic,retake,BLURRY,17.30,render parameter (scripts/synth.py),horizontal motion blur (unsupported)
+synthetic/synthetic-11-too-far.jpg,synthetic,retake,LOW_RES,17.30,render parameter (scripts/synth.py),marker too small in frame (unsupported)

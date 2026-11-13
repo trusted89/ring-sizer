@@ -1,0 +1,6 @@
+{
+  // Static site on Cloudflare Workers (assets only, no server code).
+  "name": "ring-sizer",
+  "compatibility_date": "2026-11-01",
+  "assets": { "directory": "./public" }
+}

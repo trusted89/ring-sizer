@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Ring Sizer: measure a ring from a photo</title>
+  <meta name="description" content="Estimate a ring's inner diameter from one photo with a printed 20 mm marker. Runs on your device.">
+  <meta name="theme-color" content="#f6f4ef">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%231d5c4d' stroke-width='5'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <p class="brand"><span class="ring-mark" aria-hidden="true"></span> Ring Sizer <span class="tag">prototype</span></p>
+      <h1>Measure a ring's inner diameter from one photo</h1>
+      <p class="lede">Lay the ring next to a printed 20&nbsp;mm marker, take a photo from above, upload it. You get the diameter, an honest uncertainty, and the ring size, or a clear request to retake.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card" aria-labelledby="s1">
+      <h2 id="s1"><span class="num">1</span> Print the marker sheet</h2>
+      <div class="sheet-row">
+        <svg class="sheet-art" viewBox="0 0 100 64" role="img" aria-label="Layout of the capture sheet: a square marker on the left and a ring placed to its right">
+          <rect x="0.5" y="0.5" width="99" height="63" rx="2" fill="#fff" stroke="#d9d4c7"/>
+          <rect x="10" y="22" width="20" height="20" fill="#111"/><rect x="14" y="26" width="12" height="12" fill="#fff"/><rect x="18" y="30" width="4" height="4" fill="#111"/>
+          <g fill="none" stroke="#b9b3a4" stroke-width=".5"><path d="M44 15v-5h5M83 10h5v5M88 49v5h-5M49 54h-5v-5"/></g>
+          <circle cx="66" cy="32" r="10" fill="none" stroke="#b08a3c" stroke-width="2.4"/>
+          <text x="20" y="48.5" font-size="3.6" text-anchor="middle" fill="#6b6658">20 mm</text>
+        </svg>
+        <div>
+          <p>Print at <strong>100% / "Actual size"</strong>, never "Fit to page". Then check the 100&nbsp;mm line on the sheet with a ruler.</p>
+          <p class="btn-row">
+            <a class="btn ghost" href="sheet/ring-sheet-a4.pdf" download>Download A4 sheet (PDF)</a>
+            <a class="btn ghost" href="sheet/ring-sheet-letter.pdf" download>US Letter (PDF)</a>
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="s2">
+      <h2 id="s2"><span class="num">2</span> Take the photo</h2>
+      <ol class="steps">
+        <li>Sheet on a flat table, in soft even light. No flash, no hard shadows.</li>
+        <li>One ring, lying flat inside the corner marks, with white paper showing through it.</li>
+        <li>Phone flat and <strong>directly above the ring</strong>, about 30&nbsp;cm away. No zoom.</li>
+        <li>Marker and ring both fully in frame. Tap to focus, hold still.</li>
+      </ol>
+    </section>
+
+    <section class="card" aria-labelledby="s3">
+      <h2 id="s3"><span class="num">3</span> Upload it</h2>
+      <label class="btn primary" id="pick">
+        <input type="file" id="file" accept="image/*" hidden>
+        <span id="pickLabel">Take or choose a photo</span>
+      </label>
+      <p class="fine" id="engine" role="status">Loading the measurement engine…</p>
+      <p class="fine">The photo is measured on your device. It is not uploaded anywhere. You never type a diameter or set the scale by hand.</p>
+      <details class="samples">
+        <summary>No printer nearby? Try a sample photo</summary>
+        <p class="fine">These are <strong>synthetic renders</strong> (computer-generated, labelled as such in the test set). They run through exactly the same measurement code as your own photo.</p>
+        <p class="btn-row">
+          <button class="btn ghost small" data-sample="samples/synthetic-02-ring-h3-tilt4.jpg">Ring, slight tilt</button>
+          <button class="btn ghost small" data-sample="samples/synthetic-06-two-rings.jpg">Two rings (ambiguous)</button>
+          <button class="btn ghost small" data-sample="samples/synthetic-07-steep-angle.jpg">Steep angle (unsupported)</button>
+          <button class="btn ghost small" data-sample="samples/synthetic-08-out-of-focus.jpg">Out of focus (unsupported)</button>
+        </p>
+      </details>
+    </section>
+
+    <section id="result" class="card result" hidden aria-live="polite" tabindex="-1"></section>
+
+    <section class="card" aria-labelledby="s5">
+      <h2 id="s5">What this can and cannot do</h2>
+      <details open>
+        <summary>Supported conditions</summary>
+        <ul>
+          <li>One ring and the printed 20&nbsp;mm marker on the same flat, white sheet, both fully visible.</li>
+          <li>Near-overhead photo: camera within about 10° of straight down. Steeper photos are rejected.</li>
+          <li>Sharp focus: edge blur on the marker under 0.65&nbsp;mm, and at least 5 pixels per millimetre.</li>
+          <li>The ring's opening must show paper, with a visible inner edge around at least half of the circle.</li>
+          <li>Plain round bands. Stones, settings or bent rings that stop the ring lying flat are not supported.</li>
+        </ul>
+      </details>
+      <details>
+        <summary>How the measurement works</summary>
+        <ol>
+          <li><strong>Scale.</strong> The marker's four edges are located to a fraction of a pixel. Its known 20&nbsp;mm side gives millimetres per pixel and the tilt of the paper.</li>
+          <li><strong>Flatten.</strong> The photo is mathematically flattened to a straight-down view of the paper using the marker.</li>
+          <li><strong>Inner edge.</strong> 240 rays from the centre of the opening find the paper-to-ring edge. The largest set of edge points that agree on one circle is the inner boundary.</li>
+          <li><strong>Checks.</strong> Missing marker, blur, steep angle, low resolution or an unclear edge stop the measurement and ask for a retake.</li>
+        </ol>
+      </details>
+      <details>
+        <summary>Measurement uncertainty</summary>
+        <p>The ± value is a model, not a guarantee. It combines pixel resolution, edge blur, scatter of the inner edge, marker localisation, residual perspective, the distance between marker and ring, and the ring's height.</p>
+        <p>The ring's height matters most: the upper rim sits closer to the lens than the paper, so it looks slightly larger and can hide part of the opening. The model assumes a 4&nbsp;mm tall band and never reports better than ±0.2&nbsp;mm. Wide bands (over about 5&nbsp;mm) photographed from close up can read high by more than the stated value.</p>
+        <p>Accuracy has only been checked on the test set listed in the repository. Treat the result as an estimate to within about one ring size, not a jeweller's measurement.</p>
+      </details>
+      <details>
+        <summary>Sizing table, source and rounding rule</summary>
+        <p><strong>Table:</strong> ISO 8653:2016, <em>Jewellery — Ring-sizes — Definition, measurement and designation</em>. The ISO ring size is the inner circumference in millimetres.</p>
+        <p><strong>Rounding rule:</strong> size = π × inner diameter, rounded to the nearest whole millimetre (exact halves round up). When the uncertainty spans more than one size, the range is shown.</p>
+        <p><strong>US/Canada equivalent</strong> (secondary): inner diameter = 11.63&nbsp;mm + 0.8128&nbsp;mm × size, rounded to the nearest half size. Source: published North American scale as given in <a href="https://en.wikipedia.org/wiki/Ring_size" rel="noopener">Wikipedia, "Ring size"</a>.</p>
+        <p class="fine">ISO source: <a href="https://www.iso.org/standard/62783.html" rel="noopener">iso.org/standard/62783.html</a>. Table covers ISO 41–76; outside it only the diameter is reported.</p>
+        <div class="table-scroll"><table id="sizeTable"><thead><tr><th>ISO size</th><th>Inner Ø (mm)</th><th>Ø range rounded to this size</th><th>US ≈</th></tr></thead><tbody></tbody></table></div>
+      </details>
+      <details>
+        <summary>Time and cost per image</summary>
+        <p>All computation runs in your browser, so there is <strong>no per-image variable cost</strong>: no recognition API, no model inference fee, no paid intermediary, and retakes cost nothing. The processing time shown with each result is measured on your device.</p>
+        <p>Hosting is separate: static files on Cloudflare. The one-off download of the measurement engine is about 13&nbsp;MB uncompressed and is cached by the browser afterwards.</p>
+      </details>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <p>Prototype. Uses OpenCV.js (Apache-2.0) for image operations; measurement logic, checks and interface are original work.</p>
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

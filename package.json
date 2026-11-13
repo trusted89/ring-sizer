@@ -1,0 +1,21 @@
+{
+  "name": "ring-sizer",
+  "version": "1.0.0",
+  "description": "Estimate a ring's inner diameter from a photo with a printed 20 mm marker",
+  "scripts": {
+    "test": "node scripts/run-tests.mjs",
+    "test:verbose": "node scripts/run-tests.mjs -v",
+    "synth": "python3 scripts/synth.py",
+    "sheet": "python3 scripts/make_sheet.py",
+    "vendor": "cp node_modules/@techstark/opencv-js/dist/opencv.js public/vendor/opencv.js",
+    "dev": "npx wrangler dev",
+    "deploy": "npx wrangler deploy"
+  },
+  "devDependencies": {
+    "@techstark/opencv-js": "^5.0.0-release.1",
+    "playwright-core": "^1.65.0",
+    "sharp": "^0.35.5"
+  },
+  "type": "module",
+  "private": true
+}
