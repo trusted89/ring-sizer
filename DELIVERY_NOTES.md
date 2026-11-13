@@ -40,9 +40,9 @@ Ground truth is in `test-set/ground-truth.csv`, recorded before testing. The app
 
 Observed on the synthetic set:
 
-- Flat objects (printed-style ring, cut-out in card): error 0.01–0.03 mm, also in sweeps from 0° to 10° of tilt.
+- Flat objects (printed-style ring, cut-out in card): error 0.01 mm in the set and at most 0.02 mm in sweeps from 0° to 10° of tilt.
 - Rings with height: error 0.05–0.17 mm in the set. They read slightly low when the upper rim or a shadow hides part of the opening.
-- Sweeps outside the set (scripts/dev/sweep.py): a bright inner wall makes a ring read high, +0.07 mm at 3 mm height and +0.29 mm at 8 mm height from 25 cm, which is the largest error seen and close to the stated ±0.32 mm. Blur just under the rejection limit read 0.15 mm low.
+- Sweeps outside the set (scripts/dev/sweep.py): a bright inner wall makes a ring read high, +0.07 mm at 3 mm height and +0.29 mm at 8 mm height from 25 cm, which is the largest error seen and close to the stated ±0.32 mm. A photo with 0.44 mm edge blur (inside the accepted range) read 0.15 mm low.
 
 ## What failed or is unfinished
 
