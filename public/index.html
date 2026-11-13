@@ -14,66 +14,78 @@
     <div class="wrap">
       <p class="brand"><span class="ring-mark" aria-hidden="true"></span> Ring Sizer <span class="tag">prototype</span></p>
       <h1>Measure a ring's inner diameter from one photo</h1>
-      <p class="lede">Lay the ring next to a printed 20&nbsp;mm marker, take a photo from above, upload it. You get the diameter, an honest uncertainty, and the ring size, or a clear request to retake.</p>
+      <p class="lede">You get the diameter, an honest uncertainty and the ring size, or a clear request to retake.</p>
     </div>
   </header>
 
   <main class="wrap">
-    <section class="card" aria-labelledby="s1">
-      <h2 id="s1"><span class="num">1</span> Print the marker sheet</h2>
-      <div class="sheet-row">
-        <svg class="sheet-art" viewBox="0 0 100 64" role="img" aria-label="Layout of the capture sheet: a square marker on the left and a ring placed to its right">
-          <rect x="0.5" y="0.5" width="99" height="63" rx="2" fill="#fff" stroke="#d9d4c7"/>
-          <rect x="10" y="22" width="20" height="20" fill="#111"/><rect x="14" y="26" width="12" height="12" fill="#fff"/><rect x="18" y="30" width="4" height="4" fill="#111"/>
-          <g fill="none" stroke="#b9b3a4" stroke-width=".5"><path d="M44 15v-5h5M83 10h5v5M88 49v5h-5M49 54h-5v-5"/></g>
-          <circle cx="66" cy="32" r="10" fill="none" stroke="#b08a3c" stroke-width="2.4"/>
-          <text x="20" y="48.5" font-size="3.6" text-anchor="middle" fill="#6b6658">20 mm</text>
-        </svg>
-        <div>
-          <p>Print at <strong>100% / "Actual size"</strong>, never "Fit to page". Then check the 100&nbsp;mm line on the sheet with a ruler.</p>
-          <p class="btn-row">
-            <a class="btn ghost" href="sheet/ring-sheet-a4.pdf" download>Download A4 sheet (PDF)</a>
-            <a class="btn ghost" href="sheet/ring-sheet-letter.pdf" download>US Letter (PDF)</a>
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <section class="card" aria-labelledby="s2">
-      <h2 id="s2"><span class="num">2</span> Take the photo</h2>
-      <ol class="steps">
-        <li>Sheet on a flat table, in soft even light. No flash, no hard shadows.</li>
-        <li>One ring, lying flat inside the corner marks, with white paper showing through it.</li>
-        <li>Phone flat and <strong>directly above the ring</strong>, about 30&nbsp;cm away. No zoom.</li>
-        <li>Marker and ring both fully in frame. Tap to focus, hold still.</li>
+    <section id="start" class="card start" aria-label="How to measure a ring">
+      <ol class="flow">
+        <li>
+          <span class="num" aria-hidden="true">1</span>
+          <div>
+            <h2 id="s1">Print the marker sheet</h2>
+            <p>Print at <strong>100% / "Actual size"</strong>, never "Fit to page". Then check the 100&nbsp;mm line with a ruler.</p>
+            <p class="btn-row">
+              <a class="btn ghost small" href="sheet/ring-sheet-a4.pdf" download>Download A4 sheet (PDF)</a>
+              <a class="btn ghost small" href="sheet/ring-sheet-letter.pdf" download>US Letter (PDF)</a>
+            </p>
+          </div>
+        </li>
+        <li>
+          <span class="num" aria-hidden="true">2</span>
+          <div>
+            <h2 id="s2">Photograph the ring</h2>
+            <p>One ring lying flat beside the marker. Phone flat and <strong>directly above</strong>, about 30&nbsp;cm away.</p>
+            <details class="inline">
+              <summary>Full photo checklist</summary>
+              <div class="sheet-row">
+                <svg class="sheet-art" viewBox="0 0 100 64" role="img" aria-label="Layout of the capture sheet: a square marker on the left and a ring placed to its right">
+                  <rect x="0.5" y="0.5" width="99" height="63" rx="2" fill="#fff" stroke="#d9d4c7"/>
+                  <rect x="10" y="22" width="20" height="20" fill="#111"/><rect x="14" y="26" width="12" height="12" fill="#fff"/><rect x="18" y="30" width="4" height="4" fill="#111"/>
+                  <g fill="none" stroke="#b9b3a4" stroke-width=".5"><path d="M44 15v-5h5M83 10h5v5M88 49v5h-5M49 54h-5v-5"/></g>
+                  <circle cx="66" cy="32" r="10" fill="none" stroke="#b08a3c" stroke-width="2.4"/>
+                  <text x="20" y="48.5" font-size="3.6" text-anchor="middle" fill="#6b6658">20 mm</text>
+                </svg>
+                <ol class="steps">
+                  <li>Sheet on a flat table, in soft even light. No flash, no hard shadows.</li>
+                  <li>One ring, lying flat inside the corner marks, with white paper showing through it.</li>
+                  <li>Phone flat and directly above the ring, about 30&nbsp;cm away. No zoom.</li>
+                  <li>Marker and ring both fully in frame. Tap to focus, hold still.</li>
+                </ol>
+              </div>
+            </details>
+          </div>
+        </li>
+        <li>
+          <span class="num" aria-hidden="true">3</span>
+          <div>
+            <h2 id="s3">Upload the photo</h2>
+            <label class="btn primary" id="pick">
+              <input type="file" id="file" accept="image/*" hidden>
+              <span id="pickLabel">Take or choose a photo</span>
+            </label>
+            <p class="fine" id="engine" role="status">Loading the measurement engine…</p>
+          </div>
+        </li>
       </ol>
-    </section>
-
-    <section class="card" aria-labelledby="s3">
-      <h2 id="s3"><span class="num">3</span> Upload it</h2>
-      <label class="btn primary" id="pick">
-        <input type="file" id="file" accept="image/*" hidden>
-        <span id="pickLabel">Take or choose a photo</span>
-      </label>
-      <p class="fine" id="engine" role="status">Loading the measurement engine…</p>
-      <p class="fine">The photo is measured on your device. It is not uploaded anywhere. You never type a diameter or set the scale by hand.</p>
-      <details class="samples">
-        <summary>No printer nearby? Try a sample photo</summary>
-        <p class="fine">These are <strong>synthetic renders</strong> (computer-generated, labelled as such in the test set). They run through exactly the same measurement code as your own photo.</p>
+      <div class="samples">
+        <p class="fine">No sheet yet? Try a <strong>synthetic</strong> sample photo (computer-generated). It runs through the same measurement code as your own photo.</p>
         <p class="btn-row">
           <button class="btn ghost small" data-sample="samples/synthetic-02-ring-h3-tilt4.jpg">Ring, slight tilt</button>
           <button class="btn ghost small" data-sample="samples/synthetic-06-two-rings.jpg">Two rings (ambiguous)</button>
           <button class="btn ghost small" data-sample="samples/synthetic-07-steep-angle.jpg">Steep angle (unsupported)</button>
           <button class="btn ghost small" data-sample="samples/synthetic-08-out-of-focus.jpg">Out of focus (unsupported)</button>
         </p>
-      </details>
+      </div>
+      <p class="fine privacy">The photo is measured on your device and is not uploaded anywhere. You never type a diameter or set the scale by hand.</p>
     </section>
 
     <section id="result" class="card result" hidden aria-live="polite" tabindex="-1"></section>
 
-    <section class="card" aria-labelledby="s5">
+    <section class="card reference" aria-labelledby="s5">
       <h2 id="s5">What this can and cannot do</h2>
-      <details open>
+      <details>
         <summary>Supported conditions</summary>
         <ul>
           <li>One ring and the printed 20&nbsp;mm marker on the same flat, white sheet, both fully visible.</li>
