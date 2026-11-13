@@ -30,7 +30,7 @@ await page.waitForFunction(() => window.__lastResult && window.__lastResult.stat
 console.log('blur ->', await page.innerText('#result .verdict'));
 await page.locator('#result').screenshot({ path: '/tmp/shot-retake.png' });
 // 4. sample button + not-an-image
-await page.click('summary:has-text("sample")'); await page.click('[data-sample*="steep"]');
+await page.click('[data-back]'); await page.click('[data-sample*="steep"]');
 await page.waitForFunction(() => window.__lastResult && window.__lastResult.reasons[0]?.code === 'PERSPECTIVE');
 console.log('sample steep ->', await page.innerText('#result .verdict h3'));
 await page.setInputFiles('#file', 'package.json');

@@ -89,14 +89,26 @@ async function run(select) {
 }
 
 // ---------- output ----------
-function showBusy(msg) {
+// The result takes the place of the instructions, so it is visible without scrolling.
+const BAR = `<div class="res-bar"><label class="btn primary" for="file">Measure another</label><button class="btn ghost" type="button" data-back>Instructions &amp; samples</button></div>`;
+function showResult(html) {
+  out.innerHTML = html;
   out.hidden = false;
-  out.innerHTML = `<div class="busy"><div class="spin"></div><p style="margin:0">${esc(msg)}</p></div>`;
-  out.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.body.classList.add('has-result');
+  window.scrollTo(0, 0);
+}
+function showStart() {
+  document.body.classList.remove('has-result');
+  out.hidden = true;
+  out.innerHTML = '';
+  window.scrollTo(0, 0);
+}
+out.addEventListener('click', (ev) => { if (ev.target.closest('[data-back]')) showStart(); });
+function showBusy(msg) {
+  showResult(`<div class="busy"><div class="spin"></div><p style="margin:0">${esc(msg)}</p></div>`);
 }
 function showError(msg) {
-  out.hidden = false;
-  out.innerHTML = `<div class="verdict retake"><div class="ico">!</div><div><h3>Something went wrong</h3><p>${esc(msg)}</p></div></div>`;
+  showResult(`${BAR}<div class="verdict retake"><div class="ico">!</div><div><h3>Something went wrong</h3><p>${esc(msg)}</p></div></div>`);
 }
 
 function drawOverlay(canvas, res, view) {
@@ -191,7 +203,9 @@ function checksHtml(res) {
     row(`Inner edge agreeing with one circle (min ${CONFIG.minInlierFrac * 100}%)`, `${fmt(c.inlierFrac * 100, 0)}%`, bad ? 'fail' : c.inlierFrac < 0.85 ? 'warn' : 'pass');
     row(`Ring to marker distance (max ${CONFIG.ringFarMm} mm)`, `${fmt(c.ringToMarkerMm, 0)} mm`, c.ringToMarkerMm > CONFIG.ringFarMm ? 'fail' : 'pass');
   }
-  return `<table class="checks"><tbody>${rows.join('')}</tbody></table>`;
+  const flagged = rows.filter((r) => !r.includes('class="pass"')).length;
+  const summary = flagged ? `Photo checks: ${flagged} of ${rows.length} need attention` : `Photo checks: all ${rows.length} passed`;
+  return `<details class="checks-d"${flagged ? ' open' : ''}><summary>${summary}</summary><table class="checks"><tbody>${rows.join('')}</tbody></table></details>`;
 }
 
 function meterHtml() {
@@ -204,7 +218,7 @@ function meterHtml() {
 
 function render(res) {
   document.querySelectorAll('#sizeTable tr.hit').forEach((r) => r.classList.remove('hit'));
-  let html = '';
+  let html = BAR;
   if (res.status === 'ok') {
     const u = res.uncertaintyMm;
     const sz = sizeFor(res.diameterMm, res.uncertaintyMm);
@@ -212,7 +226,7 @@ function render(res) {
     const usRange = sz.us.low === sz.us.high ? 'uncertainty stays within this size' : `likely range ${sz.us.low}–${sz.us.high}`;
     html += `<div class="verdict ok"><div class="ico">✓</div><div><h3>Inner diameter</h3>
       <p class="big">${fmt(res.diameterMm, 2)} mm <small>± ${fmt(u, 2)} mm</small></p>
-      <p class="fine">Estimated uncertainty, see "Measurement uncertainty" below. Check the close-up before relying on it.</p></div></div>`;
+      <p class="fine">Estimated uncertainty. Check the close-up before relying on it.</p></div></div>`;
     html += sz.inRange
       ? `<div class="sizes"><div class="size"><div class="k">ISO 8653 size</div><div class="v">${sz.iso.label}</div><div class="r">${isoRange}</div></div>
          <div class="size"><div class="k">US / Canada ≈</div><div class="v">${sz.us.label}</div><div class="r">${usRange}</div></div></div>`
@@ -233,11 +247,9 @@ function render(res) {
   }
   html += checksHtml(res) + meterHtml();
   html += `<p class="fine" style="margin-top:10px">Photo: ${esc(current.name)} · ${current.canvas.width} × ${current.canvas.height} px</p>`;
-  out.innerHTML = html;
-  out.hidden = false;
+  showResult(html);
   paintViews(res);
   out.querySelectorAll('[data-choose]').forEach((b) => b.addEventListener('click', () => choose(+b.dataset.choose)));
   out.focus({ preventScroll: true });
-  out.scrollIntoView({ behavior: 'smooth', block: 'start' });
   window.__lastResult = res; // for debugging and automated checks
 }
