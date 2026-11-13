@@ -4,8 +4,8 @@
 
 ## Links
 
-- Browser demo: **[LAMINE: URL]**
-- Repository: **[LAMINE: URL, private access granted to …]**
+- Browser demo: <https://ring-sizer.pages.dev>
+- Repository: <https://github.com/trusted89/ring-sizer> (private) **[LAMINE: private access granted to …]**
 - Video walkthrough (≤ 3 min): **[LAMINE: URL]**
 
 ## What was built

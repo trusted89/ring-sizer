@@ -2,7 +2,7 @@
 
 A phone-friendly web page that estimates a ring's **inner diameter** from one photograph. The ring lies flat beside a printed 20 mm square marker. The user uploads the photo and never types a diameter or calibrates by hand. The page shows the detected inner boundary, the scale reference, the diameter in millimetres with an uncertainty, and the ring size, or it asks for a retake and says why.
 
-Live demo: _see DELIVERY_NOTES.md_
+Live demo: <https://ring-sizer.pages.dev>
 
 ## Run it
 
