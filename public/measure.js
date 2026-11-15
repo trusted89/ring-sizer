@@ -373,44 +373,60 @@ function findHoleCandidates(cv, coarseRgba, Hi2pCoarse, coarsePxPerMm, paperRef,
   const mask = new cv.Mat(N, N, cv.CV_8UC1);
   const rd = rect.data, gd = g.data, bd = bg.data, vd = valid.data, md = mask.data;
   const refChroma = paperRef.chroma;
-  for (let i = 0, p = 0; i < N * N; i++, p += 4) {
-    if (!vd[i]) { md[i] = 0; continue; }
-    const b = Math.max(bd[i], 1);
-    const r_ = rd[p], g_ = rd[p + 1], b_ = rd[p + 2];
-    const chroma = (Math.max(r_, g_, b_) - Math.min(r_, g_, b_)) / b;
-    md[i] = (gd[i] / b < 0.78 || chroma - refChroma > 0.16) ? 255 : 0;
-  }
-  // erase marker (with margin) so it is never a ring candidate
   const m0 = Math.round((R - 10 - 3) * S), m1 = Math.round((R + 10 + 3) * S);
-  cv.rectangle(mask, new cv.Point(m0, m0), new cv.Point(m1, m1), new cv.Scalar(0), -1);
-  const ck = Math.max(3, Math.round(0.5 * S) | 1);
-  const ckernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(ck, ck));
-  cv.morphologyEx(mask, mask, cv.MORPH_CLOSE, ckernel);
-  ckernel.delete();
-
-  if (debug) { debug('rect', rect); debug('mask', mask); }
-  const contours = new cv.MatVector(), hier = new cv.Mat();
-  cv.findContours(mask, contours, hier, cv.RETR_CCOMP, cv.CHAIN_APPROX_NONE);
-  const cands = [];
-  for (let i = 0; i < contours.size(); i++) {
-    if (hier.data32S[i * 4 + 3] < 0) continue; // only holes (contours with a parent)
-    const c = contours.get(i);
-    const area = cv.contourArea(c), per = cv.arcLength(c, true);
-    const dEq = 2 * Math.sqrt(area / Math.PI) / S;
-    if (dEq >= CONFIG.holeMinMm && dEq <= CONFIG.holeMaxMm && c.rows >= 12) {
-      const circ = 4 * Math.PI * area / (per * per);
-      const e = cv.fitEllipse(c);
-      const ratio = Math.min(e.size.width, e.size.height) / Math.max(e.size.width, e.size.height);
-      if (circ > 0.72 && ratio > 0.8) {
-        cands.push({
-          cx: e.center.x / S + (10 - R), cy: e.center.y / S + (10 - R),
-          r: (e.size.width + e.size.height) / 4 / S, circ, ratio,
-        });
-      }
+  // Mask of everything darker than `level` x paper brightness, or clearly coloured.
+  const buildMask = (level, closeMm) => {
+    for (let i = 0, p = 0; i < N * N; i++, p += 4) {
+      if (!vd[i]) { md[i] = 0; continue; }
+      const b = Math.max(bd[i], 1);
+      const r_ = rd[p], g_ = rd[p + 1], b_ = rd[p + 2];
+      const chroma = (Math.max(r_, g_, b_) - Math.min(r_, g_, b_)) / b;
+      md[i] = (gd[i] / b < level || chroma - refChroma > 0.16) ? 255 : 0;
     }
-    c.delete();
+    // erase marker (with margin) so it is never a ring candidate
+    cv.rectangle(mask, new cv.Point(m0, m0), new cv.Point(m1, m1), new cv.Scalar(0), -1);
+    const ck = Math.max(3, Math.round(closeMm * S) | 1);
+    const ckernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(ck, ck));
+    cv.morphologyEx(mask, mask, cv.MORPH_CLOSE, ckernel);
+    ckernel.delete();
+  };
+  const search = () => {
+    const contours = new cv.MatVector(), hier = new cv.Mat();
+    cv.findContours(mask, contours, hier, cv.RETR_CCOMP, cv.CHAIN_APPROX_NONE);
+    const found = [];
+    for (let i = 0; i < contours.size(); i++) {
+      if (hier.data32S[i * 4 + 3] < 0) continue; // only holes (contours with a parent)
+      const c = contours.get(i);
+      const area = cv.contourArea(c), per = cv.arcLength(c, true);
+      const dEq = 2 * Math.sqrt(area / Math.PI) / S;
+      if (dEq >= CONFIG.holeMinMm && dEq <= CONFIG.holeMaxMm && c.rows >= 12) {
+        const circ = 4 * Math.PI * area / (per * per);
+        const e = cv.fitEllipse(c);
+        const ratio = Math.min(e.size.width, e.size.height) / Math.max(e.size.width, e.size.height);
+        if (circ > 0.72 && ratio > 0.8) {
+          found.push({
+            cx: e.center.x / S + (10 - R), cy: e.center.y / S + (10 - R),
+            r: (e.size.width + e.size.height) / 4 / S, circ, ratio,
+          });
+        }
+      }
+      c.delete();
+    }
+    contours.delete(); hier.delete();
+    return found;
+  };
+  // First pass: anything noticeably darker than paper, which finds pale or polished rings.
+  // If that encloses no round opening, the ring's shadow may have merged with it, or the
+  // ring may have a small opening (hinged hoop, split ring). So retry counting only clearly
+  // dark pixels, and bridging gaps of up to about 2.5 mm. The exact edge is found later.
+  let cands = [];
+  for (const [level, closeMm] of [[0.78, 0.5], [0.78, 2.5], [0.55, 0.5], [0.55, 2.5]]) {
+    buildMask(level, closeMm);
+    if (debug && level === 0.78 && closeMm === 0.5) { debug('rect', rect); debug('mask', mask); }
+    cands = search();
+    if (cands.length) break;
   }
-  contours.delete(); hier.delete(); rect.delete(); valid.delete(); g.delete(); bg.delete(); mask.delete();
+  rect.delete(); valid.delete(); g.delete(); bg.delete(); mask.delete();
   cands.sort((a, b) => Math.hypot(a.cx - 10, a.cy - 10) - Math.hypot(b.cx - 10, b.cy - 10));
   return cands;
 }
