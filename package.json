@@ -8,8 +8,9 @@
     "synth": "python3 scripts/synth.py",
     "sheet": "python3 scripts/make_sheet.py",
     "vendor": "cp node_modules/@techstark/opencv-js/dist/opencv.js public/vendor/opencv.js",
-    "dev": "npx wrangler dev",
-    "deploy": "npx wrangler deploy"
+    "dev": "npx wrangler pages dev public",
+    "deploy": "npx wrangler pages deploy public --project-name ring-sizer --branch main",
+    "check:sheet": "node scripts/dev/sheet-check.mjs"
   },
   "devDependencies": {
     "@techstark/opencv-js": "^5.0.0-release.1",

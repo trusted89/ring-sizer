@@ -9,7 +9,7 @@ Live demo: <https://ring-sizer.pages.dev>
 ```bash
 npm install          # OpenCV.js, sharp (tests only)
 npm run vendor       # copies OpenCV.js into public/vendor (already committed)
-npx serve public     # or: npm run dev  (Cloudflare wrangler)
+npx serve public     # or: npm run dev  (Cloudflare Pages, via wrangler)
 npm test             # runs the measurement code over test-set/ and writes test-set/results.md
 ```
 
@@ -86,7 +86,7 @@ The coefficients were set from synthetic sweeps, not from a calibration study. S
 
 - **Variable cost per image: $0.** Everything runs in the browser. There is no recognition API, model inference, speech, retry or paid intermediary.
 - **Processing time** is measured and shown with every result (decode + measurement). Reference numbers are in `DELIVERY_NOTES.md`.
-- **Hosting (separate):** static files on Cloudflare. Requests to static assets are free and unlimited on Cloudflare's free and paid plans (<https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/>). The one-off engine download is 13.3 MB uncompressed.
+- **Hosting (separate):** static files on Cloudflare Pages. Pricing assumption: on both free and paid plans, requests to static assets are free and unlimited (<https://developers.cloudflare.com/pages/functions/pricing/>, checked 15 Nov 2026). The one-off engine download is 3.7 MB over the network (Brotli; 13.3 MB uncompressed), measured on the live site.
 
 ## Reused components and own work
 
@@ -107,7 +107,7 @@ Own work: marker design and detection logic, sub-pixel edge refinement, blur and
 - The page trusts the printed marker to be 20 mm. A sheet resized by the printer (for example an A4 file on US Letter paper with "fit to page") gives results that are wrong by the same percentage, with no warning. The ruler check on the sheet is the only guard.
 - Lens distortion is not corrected. Ultra-wide lenses are not supported.
 - The camera-angle and camera-height estimates assume a typical phone main camera.
-- The engine is a 13 MB download on first use.
+- The engine is a 3.7 MB download on first use (13.3 MB uncompressed), then cached by the browser.
 
 ## Layout
 
@@ -115,5 +115,5 @@ Own work: marker design and detection logic, sub-pixel edge refinement, blur and
 public/            the site: index.html, app.js (interface), measure.js (pipeline), sizing.js, sheet/, samples/, vendor/
 scripts/           make_sheet.py, synth.py, run-tests.mjs, dev/ (debugging aids)
 test-set/          ground-truth.csv, synthetic/, photos/, results.md
-wrangler.jsonc     Cloudflare static-assets config
+wrangler.jsonc     Cloudflare Pages config (deploy steps: DEPLOY.md)
 ```
