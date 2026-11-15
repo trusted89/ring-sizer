@@ -25,11 +25,19 @@
           <span class="num" aria-hidden="true">1</span>
           <div>
             <h2 id="s1">Print the marker sheet</h2>
-            <p>Print at <strong>100% / "Actual size"</strong>, never "Fit to page". Then check the 100&nbsp;mm line with a ruler.</p>
-            <p class="btn-row">
-              <a class="btn ghost small" href="sheet/ring-sheet-a4.pdf" download>Download A4 sheet (PDF)</a>
-              <a class="btn ghost small" href="sheet/ring-sheet-letter.pdf" download>US Letter (PDF)</a>
+            <p>Use the file for <strong>your paper size</strong> and print at <strong>100% / "Actual size"</strong>. The check line on the sheet should measure 99.5–100.5&nbsp;mm.</p>
+            <p class="btn-row" id="sheets">
+              <a class="btn ghost small" data-paper="a4" href="sheet/ring-sheet-a4.pdf" download>A4 sheet (PDF)</a>
+              <a class="btn ghost small" data-paper="letter" href="sheet/ring-sheet-letter.pdf" download>US Letter sheet (PDF)</a>
             </p>
+            <details class="inline" id="printFix">
+              <summary>Check line is not 100&nbsp;mm?</summary>
+              <p class="fine">Reprinting at 100% is best. If you cannot, enter what the check line measures with a ruler, end mark to end mark. Results are then adjusted for your sheet. This describes the printed sheet, once; it is not a ring measurement.</p>
+              <label class="field">Check line on my sheet
+                <span class="field-row"><input type="number" id="lineMm" inputmode="decimal" min="90" max="110" step="0.1" placeholder="100.0"> mm</span>
+              </label>
+              <p class="fine" id="lineMsg" role="status"></p>
+            </details>
           </div>
         </li>
         <li>
@@ -88,7 +96,7 @@
       <details>
         <summary>Supported conditions</summary>
         <ul>
-          <li>One ring and the printed 20&nbsp;mm marker on the same flat, white sheet, both fully visible.</li>
+          <li>One ring and the printed 20&nbsp;mm marker on the same flat, white sheet, both fully visible. The sheet must be printed at 100% (check line 99.5–100.5&nbsp;mm).</li>
           <li>Near-overhead photo: camera within about 10° of straight down. Steeper photos are rejected.</li>
           <li>Sharp focus: edge blur on the marker under 0.65&nbsp;mm, and at least 5 pixels per millimetre.</li>
           <li>The ring's opening must show paper, with a visible inner edge around at least half of the circle.</li>
@@ -106,7 +114,8 @@
       </details>
       <details>
         <summary>Measurement uncertainty</summary>
-        <p>The ± value is a model, not a guarantee. It combines pixel resolution, edge blur, scatter of the inner edge, marker localisation, residual perspective, the distance between marker and ring, and the ring's height.</p>
+        <p>The ± value is a model, not a guarantee. It combines pixel resolution, edge blur, scatter of the inner edge, marker localisation, the print scale of the sheet, residual perspective, the distance between marker and ring, and the ring's height.</p>
+        <p>The result is only as good as the print. The page cannot see whether the sheet was resized by the printer: a sheet printed 1% too large makes every ring read 1% too small. The model allows 0.5% for this, which is what a ruler check of the 100&nbsp;mm line can confirm.</p>
         <p>The ring's height matters most: the upper rim sits closer to the lens than the paper, so it looks slightly larger and can hide part of the opening. The model assumes a 4&nbsp;mm tall band and never reports better than ±0.2&nbsp;mm. Wide bands (over about 5&nbsp;mm) photographed from close up can read high by more than the stated value.</p>
         <p>Accuracy has only been checked on the test set listed in the repository. Treat the result as an estimate to within about one ring size, not a jeweller's measurement.</p>
       </details>

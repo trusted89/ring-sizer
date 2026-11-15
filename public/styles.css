@@ -67,6 +67,13 @@ a { color: var(--accent); }
 .flow details.inline { border: 0; padding: 0; }
 .flow details.inline summary { font-weight: 550; font-size: .9rem; color: var(--accent); padding: 0; }
 .privacy { margin: 10px 0 0 !important; }
+.flow details.inline { margin-top: 8px; }
+.flow details.inline > p { margin-top: 6px; }
+.field { display: block; font-size: .9rem; font-weight: 600; margin: 8px 0; }
+.field-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-weight: 400; }
+.field input { width: 7.5em; min-height: 44px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; font: 600 1rem/1 var(--mono); background: #fff; color: var(--ink); }
+.field input:focus-visible { outline: 3px solid #7fb3a4; outline-offset: 2px; }
+.adjusted { color: var(--warn); font-weight: 600; }
 @media (max-width: 480px) { .top .lede { display: none; } .start { padding-top: 2px; } .flow > li { padding: 10px 0; } }
 .has-result #start, .has-result .top h1, .has-result .top .lede { display: none; }
 .has-result .top { padding-top: 12px; }

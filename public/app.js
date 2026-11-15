@@ -30,6 +30,39 @@ cvReady.then(
   (e) => { engineMsg.textContent = `${e.message} Check your connection and reload the page.`; engineMsg.classList.add('fail'); },
 );
 
+// ---------- paper size ----------
+// Put the sheet for the visitor's likely paper size first. Both stay available.
+try {
+  const region = new Intl.Locale(navigator.language).maximize().region;
+  if (['US', 'CA', 'MX', 'PH'].includes(region)) {
+    const row = $('#sheets');
+    row.prepend(row.querySelector('[data-paper="letter"]'), ' ');
+  }
+} catch { /* keep the default order */ }
+
+// ---------- print scale of the sheet ----------
+// Optional, one-off: the ruler reading of the sheet's 100 mm check line. It describes the
+// printed sheet, not the photo or the ring, and is only needed when the sheet was resized.
+const lineInput = $('#lineMm'), lineMsg = $('#lineMsg');
+let printScale = 1;
+function setLine(v, save) {
+  const n = parseFloat(v);
+  if (v === '' || !Number.isFinite(n)) { printScale = 1; lineMsg.textContent = ''; lineMsg.className = 'fine'; }
+  else if (n < 90 || n > 110) { printScale = 1; lineMsg.textContent = 'Enter a length between 90 and 110 mm. Outside that the sheet must be reprinted.'; lineMsg.className = 'fine fail'; }
+  else {
+    printScale = n / 100;
+    const pct = Math.abs(n - 100);
+    lineMsg.textContent = pct < 0.05 ? 'Sheet is at 100%. No adjustment.' : `Sheet is ${fmt(pct)}% too ${n > 100 ? 'large' : 'small'}. Results are adjusted for it.`;
+    lineMsg.className = pct < 0.05 ? 'fine' : 'fine adjusted';
+  }
+  if (save) { try { printScale === 1 ? localStorage.removeItem('ringSizer.lineMm') : localStorage.setItem('ringSizer.lineMm', String(n)); } catch { /* storage unavailable */ } }
+}
+lineInput.addEventListener('input', () => setLine(lineInput.value.trim(), true));
+try {
+  const saved = localStorage.getItem('ringSizer.lineMm');
+  if (saved) { lineInput.value = saved; setLine(saved, false); if (printScale !== 1) $('#printFix').open = true; }
+} catch { /* storage unavailable */ }
+
 // ---------- sizing table ----------
 const tbody = $('#sizeTable tbody');
 tbody.innerHTML = tableRows().map((r) =>
@@ -83,7 +116,7 @@ async function run(select) {
   const cv = await cvReady;
   await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))); // let the spinner paint
   const t0 = performance.now();
-  const res = measure(cv, current.imageData, { select });
+  const res = measure(cv, current.imageData, { select, printScale });
   current.measureMs = performance.now() - t0;
   render(res);
 }
@@ -226,7 +259,7 @@ function render(res) {
     const usRange = sz.us.low === sz.us.high ? 'uncertainty stays within this size' : `likely range ${sz.us.low}–${sz.us.high}`;
     html += `<div class="verdict ok"><div class="ico">✓</div><div><h3>Inner diameter</h3>
       <p class="big">${fmt(res.diameterMm, 2)} mm <small>± ${fmt(u, 2)} mm</small></p>
-      <p class="fine">Estimated uncertainty. Check the close-up before relying on it.</p></div></div>`;
+      <p class="fine${res.printScale !== 1 ? ' adjusted' : ''}">${res.printScale !== 1 ? `Adjusted for your sheet: check line ${fmt(res.printScale * 100)} mm instead of 100.` : 'Estimated uncertainty. Assumes the check line on the sheet measured 100 mm.'}</p></div></div>`;
     html += sz.inRange
       ? `<div class="sizes"><div class="size"><div class="k">ISO 8653 size</div><div class="v">${sz.iso.label}</div><div class="r">${isoRange}</div></div>
          <div class="size"><div class="k">US / Canada ≈</div><div class="v">${sz.us.label}</div><div class="r">${usRange}</div></div></div>`
