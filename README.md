@@ -34,6 +34,7 @@ npm run synth        # synthetic test photos
 
 | Check | Limit | Outcome when not met |
 |---|---|---|
+| Sheet printed at 100 % (check line 99.5–100.5 mm) | checked by the user with a ruler | Not detectable from the photo: a resized sheet shifts every result by the same percentage. Reprint, or enter the ruler reading of the check line once (see "Resized sheets") |
 | Marker found (pattern match ≥ 72 %) | required | Retake: no scale marker |
 | Photo scale | ≥ 5 px/mm | Retake: marker too small |
 | Edge blur on marker | ≤ 0.65 mm (warn above 0.40) | Retake: too blurry |
@@ -45,6 +46,12 @@ npm run synth        # synthetic test photos
 
 All limits live in `CONFIG` at the top of `public/measure.js`.
 
+### Resized sheets
+
+Printers often resize a page without saying so. The sheet therefore carries a 100 mm check line. If it does not measure 99.5–100.5 mm, the best fix is a reprint at 100 %. When that is not possible, the page accepts the ruler reading of the check line (90–110 mm), stores it in the browser, and multiplies every result by reading ÷ 100. The result then says that it was adjusted.
+
+This is a property of the printed sheet, entered once. It is not a ring diameter and not a calibration of the photo: scale in the image still comes only from the detected marker. It is optional and off by default. `scripts/dev/sheet-check.mjs` checks the sheet geometry and this adjustment.
+
 ### Uncertainty
 
 The ± value is a model, combined in quadrature and never reported below ±0.20 mm:
@@ -53,6 +60,7 @@ The ± value is a model, combined in quadrature and never reported below ±0.20 
 - 0.4 × marker edge blur
 - 2 × scatter of the inner edge (more when part of the circle is hidden)
 - marker edge localisation
+- print scale of the sheet: 0.5 % of diameter (what a ruler check of the 100 mm line can confirm)
 - residual perspective: 0.1 % of diameter per degree of tilt
 - marker-to-ring distance: 0.15 % of diameter per 40 mm
 - **ring height**: diameter × 4 mm ÷ camera height. The ring's upper rim is closer to the lens than the paper, so it appears larger and can hide part of the opening. 4 mm is an assumed band height. Camera height is estimated assuming a typical phone main-camera lens (focal length ≈ 0.72 × the long image side).
@@ -95,6 +103,7 @@ Own work: marker design and detection logic, sub-pixel edge refinement, blur and
 - A ring is a 3-D object measured from a 2-D photo. Wide bands (over about 5 mm), shot from close up, can read high by more than the stated uncertainty when the inner wall is bright, because the upper rim is detected instead of the edge on the paper.
 - Hard shadows or glare that hide more than half of the inner edge cause a retake.
 - Rings with stones or settings that stop them lying flat, bent rings, and coloured or patterned backgrounds are not supported.
+- The page trusts the printed marker to be 20 mm. A sheet resized by the printer (for example an A4 file on US Letter paper with "fit to page") gives results that are wrong by the same percentage, with no warning. The ruler check on the sheet is the only guard.
 - Lens distortion is not corrected. Ultra-wide lenses are not supported.
 - The camera-angle and camera-height estimates assume a typical phone main camera.
 - The engine is a 13 MB download on first use.

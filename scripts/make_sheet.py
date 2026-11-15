@@ -61,21 +61,23 @@ def build(path, pagesize, label):
     y = fy + FRAME_H + 22
     text(left, y, "Print check", 11, 0.05, "Helvetica-Bold")
     c.setStrokeGray(0)
-    c.setLineWidth(0.3 * mm)
+    tick = 0.2  # mm; end marks sit inside the line so their OUTER edges are exactly 100 mm apart
+    c.setLineWidth(tick * mm)
     ly = y + 9
     c.line(left * mm, (ph - ly) * mm, (left + 100) * mm, (ph - ly) * mm)
-    for x in (0, 50, 100):
+    for x in (tick / 2, 50, 100 - tick / 2):
         c.line((left + x) * mm, (ph - ly + 2.5) * mm, (left + x) * mm, (ph - ly - 2.5) * mm)
-    text(left, ly + 8, "With a ruler, this line must measure exactly 100 mm (tick at 50 mm). If it does not,", 9, 0.25)
-    text(left, ly + 12.5, "the scale is wrong: reprint at 100% before taking any photo.", 9, 0.25)
+    text(left, ly + 8, "Measure with a ruler from the outer edge of the left end mark to the outer edge of the", 9, 0.25)
+    text(left, ly + 12.5, "right end mark (middle mark = 50 mm). 99.5 to 100.5 mm is correct. Anything else means", 9, 0.25)
+    text(left, ly + 17, "the page was resized: reprint at 100% / \"Actual size\" before taking any photo.", 9, 0.25)
 
     # capture instructions
-    y = ly + 28
+    y = ly + 31
     text(left, y, "How to take the photo", 11, 0.05, "Helvetica-Bold")
     steps = [
         "1.  Put this sheet on a flat table in soft, even light. No flash, no hard shadows.",
         "2.  Lay one ring flat inside the corner marks, so white paper shows through it.",
-        "3.  Hold the phone flat, directly above the ring, about 20-30 cm away.",
+        "3.  Hold the phone flat, directly above the ring, about 30 cm away. No zoom.",
         "4.  Fit the large corner marks in the frame. Marker and ring must both be fully visible.",
         "5.  Tap the marker to focus, hold still, take the photo, then upload it.",
     ]

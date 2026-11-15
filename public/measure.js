@@ -24,6 +24,7 @@ export const CONFIG = {
   minCameraHeightWarnMm: 180,
   viewAngleWarnDeg: 12,
   uncertaintyFloorMm: 0.20,  // never state better than this (see README)
+  printScaleTolerance: 0.005, // sheet print scale as confirmed by a ruler: 100 mm line within 0.5 mm
 };
 
 const REASONS = {
@@ -581,6 +582,8 @@ function approxPose(Hp2i, W, H) {
  * @param cv   OpenCV.js module (initialised)
  * @param img  { data: Uint8ClampedArray RGBA, width, height }
  * @param opts { select?: number } index of the ring to measure when several were found
+ *             { printScale?: number } true size of the printed sheet relative to nominal
+ *             (ruler reading of the 100 mm check line / 100). Default 1.
  */
 export function measure(cv, img, opts = {}) {
   const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
@@ -698,12 +701,17 @@ export function measure(cv, img, opts = {}) {
     if (fit.rmsMm > CONFIG.maxFitRmsMm) return fail('POOR_BOUNDARY');
 
     // 4. estimate + uncertainty model (see README: this is a model, not a guarantee)
-    const D = 2 * c.r;
+    // Plane coordinates assume a 20 mm marker. If the sheet was resized in printing, the
+    // ruler reading of its check line gives the true size of everything on it.
+    const printScale = Number.isFinite(opts.printScale) && opts.printScale > 0 ? opts.printScale : 1;
+    const D = 2 * c.r * printScale;
+    result.printScale = printScale;
     const u = {
       resolution: 0.5 / geo.pxPerMm,                         // half a pixel at the photo's scale
       blur: 0.4 * blurMm,                                    // edge softness
       fit: 2 * fit.rmsMm * (1 + (fit.gapDeg / 180) ** 2),    // scatter of the edge, worse if only part of the circle agrees
       scale: D * 2 * refined.lineRmsPx / (CONFIG.markerSideMm * geo.pxPerMm), // marker edge localisation
+      printScale: D * CONFIG.printScaleTolerance,            // the photo cannot show whether the sheet was resized in printing
       perspective: D * 0.001 * pose.tiltDeg,                 // residual after rectification
       extrapolation: D * 0.0015 * (distMm / 40),             // scale carried from marker to ring
       ringHeight: D * CONFIG.assumedRingHeightMm / Math.max(pose.heightMm, 50), // upper rim is closer to the lens
