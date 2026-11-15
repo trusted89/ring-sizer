@@ -1,5 +1,5 @@
 // Interface for the ring measurement prototype. All measurement logic lives in measure.js.
-import { measure, CONFIG } from './measure.js';
+import { measure, assessFrame, CONFIG } from './measure.js';
 import { sizeFor, tableRows, TABLE } from './sizing.js';
 
 const MAX_SIDE = 4096; // photos larger than this are downscaled before measuring
@@ -102,12 +102,12 @@ async function decode(blob) {
   return { canvas, imageData: ctx.getImageData(0, 0, canvas.width, canvas.height) };
 }
 
-async function handleBlob(blob, name, isSample = false) {
+async function handleBlob(blob, name, isSample = false, fromLive = null) {
   showBusy('Measuring…');
   try {
     const t0 = performance.now();
     const { canvas, imageData } = await decode(blob);
-    current = { canvas, imageData, decodeMs: performance.now() - t0, name, isSample };
+    current = { canvas, imageData, decodeMs: performance.now() - t0, name, isSample, fromLive };
     await run();
   } catch (e) { showError(e.message || String(e)); }
 }
@@ -117,9 +117,142 @@ async function run(select) {
   await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))); // let the spinner paint
   const t0 = performance.now();
   // Sample photos are rendered at nominal size, so the sheet correction does not apply to them.
-  const res = measure(cv, current.imageData, { select, printScale: current.isSample ? 1 : printScale });
+  const res = measure(cv, current.imageData, {
+    select, printScale: current.isSample ? 1 : printScale,
+    sensorTiltDeg: current.fromLive && current.fromLive.sensorTiltDeg !== null ? current.fromLive.sensorTiltDeg : undefined,
+  });
   current.measureMs = performance.now() - t0;
   render(res);
+}
+
+// ---------- live camera check (optional) ----------
+// A preview that says "move back", "level the phone" or "good" BEFORE the photo is taken,
+// and takes the photo by itself once the position has been good for about a second.
+// It is guidance only: the photo still goes through measure() and every check. The upload
+// button works without it, and on browsers without camera access this button stays hidden.
+const LIVE = { minCm: 17, maxCm: 38, maxTiltDeg: 9, maxOffCentre: 0.3, everyMs: 220, maxSide: 960, greenAfter: 2, shootAfter: 5 };
+const liveEl = $('#live'), liveVideo = $('#liveVideo'), liveMsg = $('#liveMsg'), liveInfo = $('#liveInfo');
+const liveBtn = $('#liveBtn'), liveShotBtn = $('#liveShot'), liveLevel = $('#liveLevel'), liveDot = $('#liveDot');
+let liveStream = null, liveTimer = null, liveGood = 0, liveTaking = false;
+const liveCanvas = document.createElement('canvas');
+
+// The phone's own orientation sensor, where there is one: a bubble level. Lying flat with
+// the screen up, beta (front-back) and gamma (left-right) are both zero.
+let orient = null;
+function onOrient(e) {
+  if (e.beta === null || e.gamma === null) return;
+  orient = { beta: e.beta, gamma: e.gamma, t: performance.now() };
+  // like a real bubble, the dot drifts towards whichever edge of the phone is higher
+  let x = -e.gamma, y = -e.beta;
+  const turn = (screen.orientation && screen.orientation.angle) || 0;
+  if (turn === 90) [x, y] = [-y, x]; else if (turn === 270) [x, y] = [y, -x]; else if (turn === 180) [x, y] = [-x, -y];
+  const k = 32 / 15, lim = (v) => Math.max(-32, Math.min(32, v * k)); // ring radius reached at 15 degrees
+  liveDot.style.transform = `translate(${lim(x)}px, ${lim(y)}px)`;
+  liveLevel.hidden = false;
+  liveLevel.classList.toggle('level', Math.hypot(e.beta, e.gamma) <= CONFIG.sensorLevelDeg);
+}
+const sensorTilt = () => (orient && performance.now() - orient.t < 1500 ? Math.hypot(orient.beta, orient.gamma) : null);
+
+// What to tell the user for one assessed frame. Most important problem first.
+function liveAdvice(a) {
+  const sensor = sensorTilt();
+  if (!a.marker) return { state: 'bad', text: 'Point the camera at the sheet: marker not found', info: sensor === null ? '' : `phone tilt ${fmt(sensor, 0)}°` };
+  const cm = a.cameraHeightMm / 10;
+  // the phone's sensor is far steadier than an angle worked out from one small marker
+  const tilt = sensor === null ? a.tiltDeg : sensor, tiltMax = sensor === null ? LIVE.maxTiltDeg : CONFIG.sensorLevelDeg;
+  const info = `distance ≈ ${fmt(cm, 0)} cm · tilt ≈ ${fmt(tilt, 0)}°`;
+  if (cm < LIVE.minCm) return { state: 'bad', text: 'Too close: move the phone back', info };
+  if (cm > LIVE.maxCm) return { state: 'bad', text: 'Too far: move the phone closer', info };
+  if (tilt > tiltMax) return { state: 'bad', text: sensor === null ? 'Level the phone: hold it flat above the sheet' : 'Level the phone: bring the dot into the circle', info };
+  if (a.offCentre > LIVE.maxOffCentre) return { state: 'bad', text: 'Move the marker and ring to the middle of the picture', info };
+  return { state: 'good', text: 'Good. Hold still…', info };
+}
+
+async function liveTick() {
+  if (!liveStream || liveTaking) return;
+  try {
+    const cv = await cvReady;
+    const vw = liveVideo.videoWidth, vh = liveVideo.videoHeight;
+    if (vw && vh) {
+      const k = Math.min(1, LIVE.maxSide / Math.max(vw, vh));
+      liveCanvas.width = Math.round(vw * k); liveCanvas.height = Math.round(vh * k);
+      const ctx = liveCanvas.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(liveVideo, 0, 0, liveCanvas.width, liveCanvas.height);
+      const advice = liveAdvice(assessFrame(cv, ctx.getImageData(0, 0, liveCanvas.width, liveCanvas.height), { printScale }));
+      // a few good frames in a row before turning green, so it does not flicker
+      liveGood = advice.state === 'good' ? liveGood + 1 : 0;
+      const good = liveGood >= LIVE.greenAfter;
+      const left = Math.max(1, LIVE.shootAfter - liveGood);
+      liveMsg.textContent = advice.state !== 'good' ? advice.text : good ? `Good. Hold still: taking the photo${'.'.repeat(4 - Math.min(3, left))}` : 'Almost: hold steady';
+      liveMsg.className = `live-msg ${good ? 'good' : advice.state === 'good' ? 'wait' : ''}`;
+      liveInfo.textContent = advice.info;
+      liveEl.classList.toggle('good', good);
+      liveShotBtn.classList.toggle('ready', good);
+      if (liveGood >= LIVE.shootAfter) { liveShot(); return; } // position held for about a second: take it
+    }
+  } catch (e) { liveMsg.textContent = 'Live check stopped working. Cancel and use "Upload a photo".'; liveMsg.className = 'live-msg'; return; }
+  if (liveStream && !liveTaking) liveTimer = setTimeout(liveTick, LIVE.everyMs);
+}
+
+async function startLive() {
+  liveEl.hidden = false; liveEl.classList.remove('good'); liveGood = 0; liveTaking = false; orient = null; liveLevel.hidden = true;
+  liveMsg.textContent = 'Starting the camera…'; liveMsg.className = 'live-msg wait'; liveInfo.textContent = '';
+  // Level sensor: some browsers ask for permission, and only from a tap like this one.
+  try {
+    if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') await DeviceOrientationEvent.requestPermission();
+  } catch { /* no sensor: the angle estimated from the marker is used instead */ }
+  window.addEventListener('deviceorientation', onOrient);
+  try {
+    liveStream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } } });
+    liveVideo.srcObject = liveStream;
+    await liveVideo.play();
+    // keep refocusing while the phone moves, where the camera allows it
+    try { await liveStream.getVideoTracks()[0].applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch { /* fixed or automatic focus */ }
+    liveTick();
+  } catch (e) {
+    liveStream = null;
+    liveMsg.textContent = 'The camera could not be opened. Cancel and use "Upload a photo".'; liveMsg.className = 'live-msg';
+  }
+}
+
+function stopLive() {
+  clearTimeout(liveTimer);
+  window.removeEventListener('deviceorientation', onOrient);
+  if (liveStream) liveStream.getTracks().forEach((t) => t.stop());
+  liveStream = null; liveVideo.srcObject = null; liveEl.hidden = true; liveEl.classList.remove('good');
+}
+
+async function liveShot() {
+  if (!liveStream || liveTaking) return;
+  liveTaking = true;
+  clearTimeout(liveTimer);
+  const levelAtShot = sensorTilt();
+  liveMsg.textContent = 'Taking the photo…'; liveMsg.className = `live-msg ${liveEl.classList.contains('good') ? 'good' : 'wait'}`;
+  let blob = null;
+  // Full-resolution still where the browser offers it; otherwise the preview frame at its own size.
+  if ('ImageCapture' in window) {
+    const cap = new ImageCapture(liveStream.getVideoTracks()[0]);
+    try {
+      const pc = await cap.getPhotoCapabilities();
+      blob = await cap.takePhoto({ imageWidth: pc.imageWidth.max, imageHeight: pc.imageHeight.max });
+    } catch { blob = null; }
+    if (!blob) { try { blob = await cap.takePhoto(); } catch { blob = null; } }
+  }
+  if (!blob) {
+    const c = document.createElement('canvas');
+    c.width = liveVideo.videoWidth; c.height = liveVideo.videoHeight;
+    c.getContext('2d').drawImage(liveVideo, 0, 0);
+    blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.95));
+  }
+  stopLive();
+  if (blob) handleBlob(blob, 'Photo from live check', false, { sensorTiltDeg: levelAtShot }); else showError('The photo could not be taken. Use "Upload a photo".');
+}
+
+if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+  liveBtn.hidden = false;
+  liveBtn.addEventListener('click', startLive);
+  $('#liveCancel').addEventListener('click', stopLive);
+  liveShotBtn.addEventListener('click', liveShot);
 }
 
 // ---------- output ----------
@@ -232,7 +365,9 @@ function checksHtml(res) {
     if (c.cameraHeightMm !== undefined) row(`Camera distance (min ${CONFIG.minCameraHeightMm / 10} cm, estimated)`, `≈ ${fmt(c.cameraHeightMm / 10, 0)} cm`, c.cameraHeightMm < CONFIG.minCameraHeightMm ? 'fail' : c.cameraHeightMm < CONFIG.minCameraHeightWarnMm ? 'warn' : 'pass');
     row(`Sharpness: edge blur (max ${CONFIG.blurRejectMm} mm)`, `${fmt(c.blurMm, 2)} mm`, c.blurMm > CONFIG.blurRejectMm ? 'fail' : c.blurMm > CONFIG.blurWarnMm ? 'warn' : 'pass');
     const steep = c.tiltDeg > CONFIG.tiltRejectDeg || c.foreshorteningDeg > CONFIG.foreshorteningRejectDeg;
-    row(`Camera angle from overhead (max ${CONFIG.tiltRejectDeg}°)`, `≈ ${fmt(Math.max(c.tiltDeg, steep ? c.foreshorteningDeg : 0), 0)}°`, steep ? 'fail' : c.tiltDeg > CONFIG.tiltWarnDeg ? 'warn' : 'pass');
+    const level = c.sensorTiltDeg !== undefined && c.sensorTiltDeg <= CONFIG.sensorLevelDeg; // phone's own sensor said level
+    if (level && !(c.foreshorteningDeg > CONFIG.foreshorteningRejectDeg)) row('Camera angle from overhead (phone level sensor)', `${fmt(c.sensorTiltDeg, 0)}° · marker ≈ ${fmt(c.tiltDeg, 0)}°`, 'pass');
+    else row(`Camera angle from overhead (max ${CONFIG.tiltRejectDeg}°)`, `≈ ${fmt(Math.max(c.tiltDeg, steep ? c.foreshorteningDeg : 0), 0)}°`, steep ? 'fail' : c.tiltDeg > CONFIG.tiltWarnDeg ? 'warn' : 'pass');
   }
   if (c.inlierFrac !== undefined) {
     const need = c.inlierMin ?? CONFIG.minInlierFrac;
@@ -280,6 +415,7 @@ function render(res) {
     const r = res.reasons[0];
     html += `<div class="verdict retake"><div class="ico">↻</div><div><h3>Retake needed: ${esc(r.title)}</h3><p>${esc(r.fix)}</p></div></div>`;
     html += `<p class="fine">No diameter is shown because the photo does not meet the conditions needed for a trustworthy measurement.</p>`;
+    if (current.fromLive && r.code === 'LOW_RES') html += `<p class="notes" style="padding-left:12px">The live camera on this phone gives a small picture (${current.canvas.width} × ${current.canvas.height} px). Keep the phone where it was and use "Measure another" to take the photo with the phone's own camera.</p>`;
     if (res.overlay.marker || res.overlay.candidates) html += viewsHtml(res);
   }
   html += checksHtml(res) + meterHtml();

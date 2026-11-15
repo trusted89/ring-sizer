@@ -12,6 +12,8 @@ export const CONFIG = {
   blurWarnMm: 0.40,
   tiltRejectDeg: 10,         // supported: near-overhead
   tiltWarnDeg: 6,
+  sensorLevelDeg: 6,         // phone's own level sensor within this = level (live check only)
+  tiltRejectWithSensorDeg: 16, // angle limit for the marker estimate when the phone's sensor says level
   searchRadiusMm: 80,        // ring is searched within this distance of the marker
   ringFarMm: 75,             // ring centre must be this close to the marker centre
   holeMinMm: 8,              // plausible inner-diameter range for detection
@@ -615,12 +617,55 @@ function approxPose(Hp2i, W, H) {
   return { tiltDeg, camXY: [C[0], C[1]], heightMm: Math.abs(C[2]) };
 }
 
+// ---------- live guidance ----------
+
+/**
+ * Quick look at one camera preview frame: is the marker visible, how far away is the phone,
+ * how tilted is it, and is the marker near the middle of the frame. Used for guidance
+ * before the photo is taken. It never produces a measurement; the photo itself still goes
+ * through measure() and all of its checks.
+ * @param img  { data: Uint8ClampedArray RGBA, width, height }  a small preview frame
+ * @param opts { printScale?: number }
+ */
+export function assessFrame(cv, img, opts = {}) {
+  const { data, width: W, height: H } = img;
+  const printScale = Number.isFinite(opts.printScale) && opts.printScale > 0 ? opts.printScale : 1;
+  const gray = new Uint8Array(W * H);
+  for (let i = 0, p = 0; i < W * H; i++, p += 4) gray[i] = (data[p] * 77 + data[p + 1] * 150 + data[p + 2] * 29) >> 8;
+  const grayMat = new cv.Mat(H, W, cv.CV_8UC1);
+  grayMat.data.set(gray);
+  try {
+    const found = findMarkerCoarse(cv, grayMat, gray, W, H);
+    if (!found || found.score < CONFIG.markerMinScore) return { marker: false };
+    const refined = refineMarker(gray, W, H, found.quad);
+    if (!refined) return { marker: false };
+    const Hp2i = homographyFrom4(PLANE_CORNERS, refined.quad);
+    if (!Hp2i) return { marker: false };
+    const geo = localGeometry(Hp2i, 10, 10);
+    const pose = approxPose(Hp2i, W, H);
+    const [mx, my] = applyH(Hp2i, 10, 10);
+    return {
+      marker: true,
+      quad: refined.quad,
+      pxPerMm: geo.pxPerMm,
+      tiltDeg: pose.tiltDeg,
+      cameraHeightMm: pose.heightMm * printScale,
+      offCentre: Math.hypot(mx - W / 2, my - H / 2) / Math.min(W, H), // 0 = marker in the middle of the frame
+    };
+  } finally {
+    grayMat.delete();
+  }
+}
+
 // ---------- main entry ----------
 
 /**
  * @param cv   OpenCV.js module (initialised)
  * @param img  { data: Uint8ClampedArray RGBA, width, height }
  * @param opts { select?: number } index of the ring to measure when several were found
+ *             { sensorTiltDeg?: number } tilt of the phone from level at the moment of capture, from
+ *             the phone's own orientation sensor (live check only). The angle estimated from one
+ *             small marker is noisy; a level reading from the sensor passes the angle check.
  *             { printScale?: number } true size of the printed sheet relative to nominal
  *             (ruler reading of the 100 mm check line / 100). Default 1.
  */
@@ -682,7 +727,10 @@ export function measure(cv, img, opts = {}) {
     result.timingMs.marker = now() - t1;
 
     if (geo.pxPerMm < CONFIG.minPxPerMm) return fail('LOW_RES');
-    if (pose.tiltDeg > CONFIG.tiltRejectDeg || geo.tiltDeg > CONFIG.foreshorteningRejectDeg) return fail('PERSPECTIVE');
+    const sensorLevel = Number.isFinite(opts.sensorTiltDeg) && opts.sensorTiltDeg <= CONFIG.sensorLevelDeg;
+    if (Number.isFinite(opts.sensorTiltDeg)) result.checks.sensorTiltDeg = opts.sensorTiltDeg;
+    // A level reading from the sensor widens the limit for the noisy marker estimate; it does not remove it.
+    if (pose.tiltDeg > (sensorLevel ? CONFIG.tiltRejectWithSensorDeg : CONFIG.tiltRejectDeg) || geo.tiltDeg > CONFIG.foreshorteningRejectDeg) return fail('PERSPECTIVE');
     if (blurMm > CONFIG.blurRejectMm) return fail('BLURRY');
     if (pose.heightMm < CONFIG.minCameraHeightMm) {
       return fail('TOO_CLOSE', { fix: `The phone was about ${Math.round(pose.heightMm / 10)} cm from the sheet. ${REASONS.TOO_CLOSE.fix}` });
@@ -770,7 +818,7 @@ export function measure(cv, img, opts = {}) {
     result.uncertaintyMm = Math.max(CONFIG.uncertaintyFloorMm, combined);
     result.uncertaintyTerms = u;
     result.status = 'ok';
-    if (pose.tiltDeg > CONFIG.tiltWarnDeg) result.warnings.push('Camera was noticeably tilted. Hold it flat above the sheet for a tighter result.');
+    if (pose.tiltDeg > CONFIG.tiltWarnDeg && !(Number.isFinite(opts.sensorTiltDeg) && opts.sensorTiltDeg <= CONFIG.sensorLevelDeg)) result.warnings.push('Camera was noticeably tilted. Hold it flat above the sheet for a tighter result.');
     if (blurMm > CONFIG.blurWarnMm) result.warnings.push('Photo is slightly soft. A sharper photo will reduce the uncertainty.');
     if (pose.heightMm < CONFIG.minCameraHeightWarnMm) result.warnings.push('Phone was fairly close to the ring. From about 25 cm, with the full width of the page in the frame, the ring\'s height distorts the result less.');
     if (viewAngleDeg > CONFIG.viewAngleWarnDeg) result.warnings.push('Ring was not directly under the camera. Centre it in the photo to reduce parallax.');
