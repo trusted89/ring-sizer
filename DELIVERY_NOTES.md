@@ -20,25 +20,27 @@ Ground truth is in `test-set/ground-truth.csv`, recorded before testing. The app
 
 ### Real photographs
 
-Seven photos from my phone of my own printed sheet, with three real objects. The sheet came out at 84 % of nominal size (check line 84 mm by ruler), so each photo's row in `ground-truth.csv` carries `sheet_line_mm = 84`, applied the same way the page applies it.
+Eight photos from my phone of my own printed sheet, with four real objects. The sheet came out at 84 % of nominal size (check line 84 mm by ruler), so each photo's row in `ground-truth.csv` carries `sheet_line_mm = 84`, applied the same way the page applies it.
 
 Measuring tool for the objects: a ruler with 1 mm marks, inner edge to inner edge, read before any photo of that object was uploaded. Its resolution (about ±0.5 mm) is coarser than the app's stated uncertainty, so these rows show agreement with a ruler, not accuracy to a tenth of a millimetre.
 
 | Photo | Kind | Expected | Actual | True inner Ø (mm) | Estimated Ø (mm) | Absolute error (mm) | Stated uncertainty | Error within uncertainty | Size | Time (ms, Node) | Outcome |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| real-01-sheet-only-no-ring.jpg | real-photo | retake: NO_RING | retake: NO_RING | - |  |  |  |  |  | 315 | pass |
-| real-02-keyring-25mm.jpg | real-object | measure | ok | 25.0 | 25.05 | 0.05 | ±0.54 | yes | ISO 79 | 275 | pass |
-| real-03-keyring-too-close-a.jpg | real-object | retake: TOO_CLOSE | retake: TOO_CLOSE | - |  |  |  |  |  | 185 | pass |
-| real-04-keyring-too-close-b.jpg | real-object | retake: TOO_CLOSE | retake: TOO_CLOSE | - |  |  |  |  |  | 143 | pass |
-| real-05-signet-ring-stone.jpg | real-ring | retake: NO_RING | retake: NO_RING | - |  |  |  |  |  | 339 | pass |
-| real-06-hoop-12mm.jpg | real-object | measure | ok | 13.0 | 13.05 | 0.05 | ±0.39 | yes | ISO 41 | 523 | pass |
-| real-07-hoop-off-centre.jpg | real-object | retake: NOT_ROUND | retake: NOT_ROUND | - |  |  |  |  |  | 362 | pass |
+| real-01-sheet-only-no-ring.jpg | real-photo | retake: NO_RING | retake: NO_RING | - |  |  |  |  |  | 357 | pass |
+| real-02-keyring-25mm.jpg | real-object | measure | ok | 25.0 | 25.05 | 0.05 | ±0.54 | yes | ISO 79 | 327 | pass |
+| real-03-keyring-too-close-a.jpg | real-object | retake: TOO_CLOSE | retake: TOO_CLOSE | - |  |  |  |  |  | 179 | pass |
+| real-04-keyring-too-close-b.jpg | real-object | retake: TOO_CLOSE | retake: TOO_CLOSE | - |  |  |  |  |  | 149 | pass |
+| real-05-signet-ring-stone.jpg | real-ring | retake: NO_RING | retake: NO_RING | - |  |  |  |  |  | 381 | pass |
+| real-06-hoop-12mm.jpg | real-object | measure | ok | 13.0 | 13.05 | 0.05 | ±0.39 | yes | ISO 41 | 547 | pass |
+| real-07-hoop-off-centre.jpg | real-object | retake: NOT_ROUND | retake: NOT_ROUND | - |  |  |  |  |  | 241 | pass |
+| real-08-band-22mm-unclear-edge.jpg | real-object | retake: NOT_ROUND | retake: NOT_ROUND | - |  |  |  |  |  | 258 | pass |
 
 Objects:
 
 - **Key ring** (`real-02` to `real-04`): steel split ring, 25 mm by ruler. From about 25 cm it reads 25.05 mm. It is larger than any ring size in the table, so the page shows the diameter and says no size applies. From about 10 cm it is rejected as too close; before that rule existed those two photos read about 26.3 mm.
 - **Hoop** (`real-06`, `real-07`): black hinged hoop about 2.5 mm thick. **Its ground truth was corrected after testing, and that weakens this row.** Before testing I read it as "12 to 12.9 mm" on the ruler. The app then read 13.05 mm from about 16 cm. I measured again and read 13 mm, and I believe the first reading was wrong: the hoop is small, thick and rounded, and hard to read against a ruler. The table uses 13.0 mm, which gives an error of 0.05 mm. Against the first reading (taken as 12.5 mm) the error is 0.55 mm, outside the stated ±0.39 mm. Across five photos of this hoop the unrestricted readings ranged from 12.40 to 13.05 mm. In `real-07` the hoop sits off-centre in a whole-page photo, its near side hides part of the opening, and the page asks for a retake.
 - **Signet ring with a stone** (`real-05`): 18 to 19 mm by ruler. It rests on its setting and the opening is in shadow, so no round opening showing paper is found and the page declines to measure. This is the only finger ring I had, and it is an unsupported kind.
+- **Thin polished band** (`real-08`): 22 mm by ruler, recorded before testing. In ten photos it never gave a reading: six were too close, two were tilted past the limit, and in the rest too little of the edge agreed with one circle (17 % in `real-08`). With the checks switched off the readings were 23.2 to 24.1 mm, 1.2 to 2.1 mm above the ruler. I do not know whether the ruler reading or the app is off; the app declining to report is the right outcome either way.
 - `real-01` is the sheet alone on a red cloth.
 
 What these show and do not show:
@@ -79,6 +81,8 @@ Observed on the synthetic set:
   - A dark hoop with a small opening and a soft shadow was not found: the shadow merged with the hoop and the opening was not enclosed. The search now retries counting only clearly dark pixels and bridging gaps up to about 2.5 mm.
 - Real-photo evidence is three objects in one lighting condition, one phone. Thresholds changed on the strength of these photos; that is tuning to a sample, not validation.
 - If the hoop's first ruler reading was right, the uncertainty model understated the error on it (0.55 mm error against ±0.39 mm stated). The ring-height term assumes a 4 mm band seen from straight above; a thick rounded tube seen from 16 cm and 16° off-axis behaves worse.
+- Many overhead-looking photos were rejected as tilted or read 8 to 14 degrees. The lens-independent angle check reads 9 to 14 degrees on every real photo, including good ones. Either my print is not exactly square or the angle estimate from one 20 mm marker is noisy at this size; I did not resolve which. It makes the page ask for more retakes than it should.
+- Getting an accepted photo took several attempts per object: the working distance window (about 15 to 30 cm, ring near the centre, phone level) is narrow and the page only says what was wrong after the upload. Live camera guidance is the fix.
 - Tall rings and rings with stones are declined with "no ring found", which is correct but not specific. A message naming the cause would be better.
 - First approach, an ellipse fit to all edge points, read 0.35–0.5 mm low on rings with height and shadow and was replaced by the circle-consensus method.
 - A shadow as dark as the ring itself hides the edge on that side. The method then works from the visible part, and asks for a retake if less than half the circle is usable.
