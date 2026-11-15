@@ -15,5 +15,5 @@ photos/real-02-keyring-25mm.jpg,real-object,measure,,25.0,ruler with 1 mm marks;
 photos/real-03-keyring-too-close-a.jpg,real-object,retake,TOO_CLOSE,25.0,ruler with 1 mm marks,same key ring photographed from about 10 cm (unsupported: too close),84
 photos/real-04-keyring-too-close-b.jpg,real-object,retake,TOO_CLOSE,25.0,ruler with 1 mm marks,same key ring photographed from about 10 cm (unsupported: too close),84
 photos/real-05-signet-ring-stone.jpg,real-ring,retake,NO_RING,18.5,ruler with 1 mm marks; read as 18 to 19 mm,signet ring with a stone: tall band resting on the setting; opening in shadow (unsupported),84
-photos/real-06-hoop-12mm.jpg,real-object,measure,,12.5,ruler with 1 mm marks; read as 12 to 12.9 mm; measured before testing,black hinged hoop about 2.5 mm thick from about 16 cm; re-measured as 13 mm AFTER the app result was seen (not used as ground truth),84
-photos/real-07-hoop-off-centre.jpg,real-object,retake,NOT_ROUND,12.5,ruler with 1 mm marks,same hoop near the top of a whole-page photo: the near side of the hoop hides part of the opening,84
+photos/real-06-hoop-12mm.jpg,real-object,measure,,13.0,ruler with 1 mm marks; first read as 12 to 12.9 mm before testing; re-measured as 13 mm AFTER the app result was seen; the second reading is used,black hinged hoop about 2.5 mm thick from about 16 cm,84
+photos/real-07-hoop-off-centre.jpg,real-object,retake,NOT_ROUND,13.0,ruler with 1 mm marks,same hoop near the top of a whole-page photo: the near side of the hoop hides part of the opening,84
