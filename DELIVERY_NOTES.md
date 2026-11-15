@@ -1,12 +1,10 @@
 # Delivery notes — Ring measurement from a photograph
 
-> One item is still marked **[LAMINE]**: the video link, which I add once the video is uploaded.
-
 ## Links
 
 - Browser demo: <https://ring-sizer.pages.dev>
 - Repository: <https://github.com/trusted89/ring-sizer>
-- Video walkthrough (≤ 3 min): **[LAMINE: URL]**
+- Video walkthrough (2 min 57 s): <https://drive.google.com/file/d/10jJlqQ8lcBSExDmhz7iuj-H3GvyDMpP5/view?usp=sharing>
 
 ## What was built
 

@@ -4,6 +4,8 @@ A phone-friendly web page that estimates a ring's **inner diameter** from one ph
 
 Live demo: <https://ring-sizer.pages.dev>
 
+Video walkthrough (under 3 minutes): <https://drive.google.com/file/d/10jJlqQ8lcBSExDmhz7iuj-H3GvyDMpP5/view?usp=sharing>
+
 ## Run it
 
 ```bash
