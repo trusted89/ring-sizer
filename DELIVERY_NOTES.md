@@ -1,16 +1,16 @@
 # Delivery notes — Ring measurement from a photograph
 
-> Items marked **[LAMINE]** must be completed by me from my own measurements and records before submitting.
+> One item is still marked **[LAMINE]**: the video link, which I add once the video is uploaded.
 
 ## Links
 
 - Browser demo: <https://ring-sizer.pages.dev>
-- Repository: <https://github.com/trusted89/ring-sizer> (private) **[LAMINE: private access granted to …]**
+- Repository: <https://github.com/trusted89/ring-sizer>
 - Video walkthrough (≤ 3 min): **[LAMINE: URL]**
 
 ## What was built
 
-A static, phone-friendly page. The user prints a marker sheet, photographs one ring beside the 20 mm marker, and uploads the photo. The page returns the inner diameter with an uncertainty and an ISO 8653 size, shows the detected boundary and scale reference on the photo, and reports processing time and cost. It refuses to measure, with a specific retake instruction, when the marker is missing, the photo is blurry, too far, too steep, or the inner edge is not a clean circle. If two rings are visible it asks which one.
+A static, phone-friendly page. The user prints a marker sheet, photographs one ring beside the 20 mm marker, and uploads the photo, or uses the live check, which guides distance, level and centring in the camera preview and takes the photo by itself. The page returns the inner diameter with an uncertainty and an ISO 8653 size, shows the detected boundary and scale reference on the photo, and reports processing time and cost. It refuses to measure, with a specific retake instruction, when the marker is missing, the photo is blurry, too far, too steep, or the inner edge is not a clean circle. If two rings are visible it asks which one.
 
 Design decision: classical computer vision on the device, no AI model at run time. A measurement has to be repeatable and explainable, a marker gives an exact scale, and running on the device makes the variable cost zero and keeps the photo private.
 
@@ -86,7 +86,7 @@ Observed on the synthetic set:
 - Real-photo evidence is three objects in one lighting condition, one phone. Thresholds changed on the strength of these photos; that is tuning to a sample, not validation.
 - If the hoop's first ruler reading was right, the uncertainty model understated the error on it (0.55 mm error against ±0.39 mm stated). The ring-height term assumes a 4 mm band seen from straight above; a thick rounded tube seen from 16 cm and 16° off-axis behaves worse.
 - Many photos I thought were overhead were rejected as tilted or read 8 to 14 degrees. I checked whether the angle estimate was wrong because my print was stretched: thin round objects come out round to within 1 % in the sheet's own coordinates across seven photos, so the print is not stretched and the photos probably were tilted about 10 degrees, which is easy to do when holding a phone by hand. I did not confirm this with the phone resting level on a support.
-- Getting an accepted photo took several attempts per object: the working distance window (about 15 to 30 cm, ring near the centre, phone level) is narrow and the page only says what was wrong after the upload. Live camera guidance is the fix.
+- Getting an accepted photo by hand took several attempts per object: the working window (about 15 to 30 cm, ring near the centre, phone level) is narrow, and an upload only says what was wrong afterwards. The live check was built in response; with it each object took one attempt.
 - **Live check, tested on my phone.** After the failures above I added a live camera check: it shows distance and tilt before the photo, a bubble level from the phone's own sensor, a green frame when the position is good, and it takes the photo by itself. First real use, on the 25 mm key ring: the photo was taken automatically at about 22 cm and read **25.38 mm ± 0.62** (0.38 mm above the ruler, inside the stated uncertainty). Second, on the hoop, at about 20 cm: **12.97 mm ± 0.40**, ISO 41 (ruler: first read as 12 to 12.9 mm, re-measured as 13 mm). Each took one attempt, against several attempts per object when photographing by hand. Two things it showed:
   - The phone's sensor read 2 degrees from level while the angle estimated from the marker read 12 degrees for the same photo (2 and 13 degrees on the second). So the marker-based angle reads about 10 degrees high on my set-up, which explains the many "too steep" rejections of photos I had taken level. I have not found the cause (a creased sheet on a soft surface is my first suspect). Photos from the live check use the sensor; uploaded photos still use the marker estimate and are rejected more often than they should be.
   - The live check's photo is only 1080 × 2336 px on my phone (6.8 px per sheet millimetre against about 11 for the phone's own camera), so its uncertainty is larger. The browser did not hand over a full-size still.
@@ -95,7 +95,7 @@ Observed on the synthetic set:
 - First approach, an ellipse fit to all edge points, read 0.35–0.5 mm low on rings with height and shadow and was replaced by the circle-consensus method.
 - A shadow as dark as the ring itself hides the edge on that side. The method then works from the visible part, and asks for a retake if less than half the circle is usable.
 - The page cannot detect a sheet that the printer resized (for example an A4 file on US Letter paper with "fit to page"). Every result is then wrong by the same percentage. The ruler check on the sheet is the only guard, and the uncertainty allows 0.5 % for it.
-- Not built: lens-distortion correction, estimating ring height to correct parallax, EXIF focal length, live camera guidance, a second marker for a better perspective estimate.
+- Not built: lens-distortion correction, estimating ring height to correct parallax, EXIF focal length, a second marker for a better perspective estimate.
 - The engine download is 3.7 MB over the network (13.3 MB uncompressed, measured on the live site), which is still heavy for mobile data.
 
 ## Time and cost
@@ -104,14 +104,14 @@ Observed on the synthetic set:
 - **Time to a useful result (measured):**
   - Node on the build machine, 3200 × 2400 px: 160–280 ms per accepted photo, 50–100 ms per rejected photo (see results table).
   - Headless desktop Chrome, same photos: about 0.4–0.5 s including decoding. Engine start-up 0.8 s from a local server, one-off.
-  - Phone, Samsung Galaxy A15 (SM-A155M), Chrome, as shown on the result screen: **1.17 s** and **1.12 s** for two 1080 × 2336 px photos taken by the live check (read photo about 0.1 s + measure about 1.0 s). **[LAMINE: add a timing for a full-size uploaded photo, and first-load time on Wi-Fi/4G.]**
+  - Phone, Samsung Galaxy A15 (SM-A155M), Chrome, as shown on the result screen: **1.17 s** and **1.12 s** for two 1080 × 2336 px photos taken by the live check (read photo about 0.1 s + measure about 1.0 s). I did not record a phone timing for a full-size uploaded photo or the first-load time on mobile data.
 - **Hosting (separate from variable cost):** Cloudflare Pages, free plan. Pricing assumption: requests to static assets are free and unlimited on free and paid plans (Cloudflare docs, "Pages Functions — Pricing", checked 15 Nov 2026). Free-plan limits that apply: 500 deployments a month, 25 MiB per file. Domain: none needed.
-- **Build-time AI cost** is not a per-operation cost: **[LAMINE: subscription used.]**
+- **Build-time AI cost** is not a per-operation cost: a Claude Max subscription, a flat monthly fee. Nothing is charged per image, per retry or per user.
 
 ## AI tools and models
 
 - Claude (Anthropic) in the Claude app, model Claude Fable 5.2: wrote the code, synthetic renderer, tests and documentation under my direction.
-- **[LAMINE: list anything else actually used, with exact model names, e.g. a second reviewer.]**
+- No other AI tool or model was used.
 - No AI model runs inside the product.
 
 Examples of checking AI output:
@@ -122,7 +122,7 @@ Examples of checking AI output:
 
 ## Time spent
 
-**[LAMINE: actual focused hours, split build / test photos / video.]**
+About 4 to 6 focused hours, under the 8-hour guide. I did not keep a split between building, test photos and video. Most of the last session went on real photos: finding out why they were rejected and fixing the causes.
 
 ## Product judgment
 
@@ -131,4 +131,4 @@ Examples of checking AI output:
 - The result shows a size *range* when the uncertainty crosses a size boundary, because ±0.3 mm is about one ISO size.
 - The close-up with the detected edge lets the user verify the measurement by eye.
 - The same method measures any round hole, not only rings: washers, grommets, key holes. I tested a key hole and it is outside the current range. Widening the range is a product direction, not something to tune in a prototype for ring sizes.
-- Next: validate on 20–30 real rings against calipers and set the uncertainty from that data; add live camera guidance (angle, distance, sharpness) before capture; ask one spoken or tapped question about band width to correct parallax; replace the 3.7 MB engine download with a small purpose-built module.
+- Next: validate on 20–30 real rings against calipers and set the uncertainty from that data; make the live check deliver a full-size photo on every phone and add a sharpness check to it; find out why the marker-based angle reads high; ask one spoken or tapped question about band width to correct parallax; replace the 3.7 MB engine download with a small purpose-built module.
