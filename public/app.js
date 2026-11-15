@@ -170,7 +170,8 @@ function drawOverlay(canvas, res, view) {
     path(o.inner); ctx.lineWidth = view.close ? Math.max(1.5, lw * 0.6) : lw; ctx.strokeStyle = '#e6007a'; ctx.stroke();
     if (o.diameterLine) {
       path(o.diameterLine, false); ctx.setLineDash([lw * 3, lw * 2]); ctx.lineWidth = Math.max(1.5, lw * 0.6); ctx.stroke(); ctx.setLineDash([]);
-      if (!view.close) { const top = o.inner.reduce((a, b) => (b[1] < a[1] ? b : a)); label(`${fmt(res.diameterMm, 2)} mm`, [top[0], top[1] - (Math.max(13, canvas.width / 42) + 14) / s], '#b3005f'); }
+      // A retake can still carry a fitted circle (shown so the user sees what was found), but no diameter.
+      if (!view.close && res.status === 'ok') { const top = o.inner.reduce((a, b) => (b[1] < a[1] ? b : a)); label(`${fmt(res.diameterMm, 2)} mm`, [top[0], top[1] - (Math.max(13, canvas.width / 42) + 14) / s], '#b3005f'); }
     }
   }
   (o.candidates || []).forEach((c, i) => {
@@ -186,7 +187,7 @@ function viewsHtml(res) {
     <figure><canvas id="ovMain"></canvas><figcaption>Your photo with what was detected</figcaption></figure>
     ${hasInner ? '<figure><canvas id="ovClose"></canvas><figcaption>Close-up: the pink line should sit on the ring\'s inner edge</figcaption></figure>' : ''}
   </div>
-  <p class="legend"><span><i style="background:#00b386"></i>scale reference (20 mm marker)</span>${hasInner ? '<span><i style="background:#e6007a"></i>detected inner boundary and diameter</span>' : ''}${res.overlay.candidates ? '<span><i style="background:#e08a00"></i>ring candidates</span>' : ''}</p>`;
+  <p class="legend"><span><i style="background:#00b386"></i>scale reference (20 mm marker)</span>${hasInner ? `<span><i style="background:#e6007a"></i>${res.status === 'ok' ? 'detected inner boundary and diameter' : 'best circle found (not accepted)'}</span>` : ''}${res.overlay.candidates ? '<span><i style="background:#e08a00"></i>ring candidates</span>' : ''}</p>`;
 }
 
 function paintViews(res) {
