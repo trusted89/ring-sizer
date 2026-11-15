@@ -50,7 +50,7 @@ const REASONS = {
   },
   TOO_CLOSE: {
     title: 'Phone is too close to the ring',
-    fix: 'Hold the phone about 30 cm above the sheet and retake. From close up, the height of the ring itself makes the opening look larger than it is.',
+    fix: 'Step back until the full width of the page fits in the frame (about 25 cm) and retake. From close up, the height of the ring itself makes the opening look larger than it is.',
   },
   NO_RING: {
     title: 'No ring found next to the marker',
@@ -684,7 +684,9 @@ export function measure(cv, img, opts = {}) {
     if (geo.pxPerMm < CONFIG.minPxPerMm) return fail('LOW_RES');
     if (pose.tiltDeg > CONFIG.tiltRejectDeg || geo.tiltDeg > CONFIG.foreshorteningRejectDeg) return fail('PERSPECTIVE');
     if (blurMm > CONFIG.blurRejectMm) return fail('BLURRY');
-    if (pose.heightMm < CONFIG.minCameraHeightMm) return fail('TOO_CLOSE');
+    if (pose.heightMm < CONFIG.minCameraHeightMm) {
+      return fail('TOO_CLOSE', { fix: `The phone was about ${Math.round(pose.heightMm / 10)} cm from the sheet. ${REASONS.TOO_CLOSE.fix}` });
+    }
 
     // 2. ring candidates in a rectified, low-resolution view
     const t2 = now();
@@ -770,7 +772,7 @@ export function measure(cv, img, opts = {}) {
     result.status = 'ok';
     if (pose.tiltDeg > CONFIG.tiltWarnDeg) result.warnings.push('Camera was noticeably tilted. Hold it flat above the sheet for a tighter result.');
     if (blurMm > CONFIG.blurWarnMm) result.warnings.push('Photo is slightly soft. A sharper photo will reduce the uncertainty.');
-    if (pose.heightMm < CONFIG.minCameraHeightWarnMm) result.warnings.push('Phone was very close to the ring. From about 30 cm the ring\'s height distorts the result less.');
+    if (pose.heightMm < CONFIG.minCameraHeightWarnMm) result.warnings.push('Phone was fairly close to the ring. From about 25 cm, with the full width of the page in the frame, the ring\'s height distorts the result less.');
     if (viewAngleDeg > CONFIG.viewAngleWarnDeg) result.warnings.push('Ring was not directly under the camera. Centre it in the photo to reduce parallax.');
     if (fit.inlierFrac < CONFIG.minInlierFrac) result.warnings.push('Less than half of the inner edge agrees with one circle (reflections or an irregular edge). The agreeing points are spread all round the ring, so it was measured, with a larger uncertainty. Check the close-up.');
     else if (fit.inlierFrac < 0.85) result.warnings.push('Part of the inner edge was hidden by shadow, glare or the ring\'s own rim. The visible part was used.');
