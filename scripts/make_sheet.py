@@ -77,8 +77,8 @@ def build(path, pagesize, label):
     steps = [
         "1.  Put this sheet on a flat table in soft, even light. No flash, no hard shadows.",
         "2.  Lay one ring flat inside the corner marks, so white paper shows through it.",
-        "3.  Hold the phone flat, directly above the ring, about 30 cm away. No zoom.",
-        "4.  Fit the large corner marks in the frame. Marker and ring must both be fully visible.",
+        "3.  Hold the phone level, directly above the ring, about 25 cm away. No zoom.",
+        "4.  Step back until the full width of this page fits in the frame. Do not move in closer.",
         "5.  Tap the marker to focus, hold still, take the photo, then upload it.",
     ]
     for i, s in enumerate(steps):
