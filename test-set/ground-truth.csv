@@ -10,3 +10,4 @@ synthetic/synthetic-08-out-of-focus.jpg,synthetic,retake,BLURRY,17.30,render par
 synthetic/synthetic-09-no-marker.jpg,synthetic,retake,NO_MARKER,17.30,render parameter (scripts/synth.py),no scale marker (unsupported)
 synthetic/synthetic-10-motion-blur.jpg,synthetic,retake,BLURRY,17.30,render parameter (scripts/synth.py),horizontal motion blur (unsupported)
 synthetic/synthetic-11-too-far.jpg,synthetic,retake,LOW_RES,17.30,render parameter (scripts/synth.py),marker too small in frame (unsupported)
+photos/real-01-sheet-only-no-ring.jpg,real-photo,retake,NO_RING,-,no ring in the photo,phone photo of the printed sheet on a red cloth; sheet printed at 84 % (check line 84 mm by ruler); nothing to measure,84
