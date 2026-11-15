@@ -49,7 +49,7 @@ All limits live in `CONFIG` at the top of `public/measure.js`.
 
 ### Live check (beta)
 
-The "Live check" button opens the camera and gives guidance before the photo is taken: marker not found, too close, too far, level the phone, move the marker and ring to the middle, or good. It runs the marker stage of the pipeline on small preview frames about four times a second (`assessFrame` in `public/measure.js`). It is guidance only. The photo it takes goes through `measure()` and every check, exactly like an uploaded photo, and the upload button works without it. The button is hidden where the browser gives no camera access.
+The "Live check" button opens the camera and gives guidance before the photo is taken: marker not found, too close, too far, level the phone (with a bubble level from the phone's own sensor), put the ring inside the dashed circle in the middle of the picture, or good. When the position has been good for about a second it takes the photo by itself. "Too far" is judged by how many pixels the ring will get, because the photo a browser hands over can be much smaller than the phone's own camera gives. It runs the marker stage of the pipeline on small preview frames about four times a second (`assessFrame` in `public/measure.js`). It is guidance only. The photo it takes goes through `measure()` and every check, exactly like an uploaded photo, and the upload button works without it. The button is hidden where the browser gives no camera access.
 
 ### Resized sheets
 

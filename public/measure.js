@@ -13,7 +13,7 @@ export const CONFIG = {
   tiltRejectDeg: 10,         // supported: near-overhead
   tiltWarnDeg: 6,
   sensorLevelDeg: 6,         // phone's own level sensor within this = level (live check only)
-  tiltRejectWithSensorDeg: 16, // angle limit for the marker estimate when the phone's sensor says level
+  tiltRejectWithSensorDeg: 20, // angle limit for the marker estimate when the phone's sensor says level
   searchRadiusMm: 80,        // ring is searched within this distance of the marker
   ringFarMm: 75,             // ring centre must be this close to the marker centre
   holeMinMm: 8,              // plausible inner-diameter range for detection
@@ -644,6 +644,14 @@ export function assessFrame(cv, img, opts = {}) {
     const geo = localGeometry(Hp2i, 10, 10);
     const pose = approxPose(Hp2i, W, H);
     const [mx, my] = applyH(Hp2i, 10, 10);
+    // The ring area sits 46 mm from the marker's centre along one of the marker's own axes. The
+    // marker looks the same from all four sides, so take whichever of the four spots is nearest
+    // the middle of the frame: that is the one the user is aiming at.
+    let ringOff = Infinity;
+    for (const [dx, dy] of [[46, 0], [-46, 0], [0, 46], [0, -46]]) {
+      const [rx, ry] = applyH(Hp2i, 10 + dx, 10 + dy);
+      ringOff = Math.min(ringOff, Math.hypot(rx - W / 2, ry - H / 2) / Math.min(W, H));
+    }
     return {
       marker: true,
       quad: refined.quad,
@@ -651,6 +659,7 @@ export function assessFrame(cv, img, opts = {}) {
       tiltDeg: pose.tiltDeg,
       cameraHeightMm: pose.heightMm * printScale,
       offCentre: Math.hypot(mx - W / 2, my - H / 2) / Math.min(W, H), // 0 = marker in the middle of the frame
+      ringOffCentre: ringOff,                                          // 0 = ring area in the middle of the frame
     };
   } finally {
     grayMat.delete();
