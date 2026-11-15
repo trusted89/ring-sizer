@@ -18,10 +18,14 @@ export const CONFIG = {
   holeMaxMm: 40,
   foreshorteningRejectDeg: 25, // lens-independent backstop for the angle check
   minInlierFrac: 0.50,       // share of the circumference that must agree with one circle
+  minInlierFracSpread: 0.30, // ...or this much, when the agreeing points are spread all round the ring
+  spreadGapDeg: 120,         // "spread all round" = no stretch longer than this without agreeing points
   maxArcGapDeg: 200,         // largest stretch of circumference with no agreeing edge
   maxFitRmsMm: 0.12,
+  edgeTolMm: 0.12,           // edge points within this distance of the circle count as agreeing
+  minCameraHeightMm: 150,    // closer than this the ring's own height distorts the result too much
   assumedRingHeightMm: 4,    // typical band height, used only in the uncertainty model
-  minCameraHeightWarnMm: 180,
+  minCameraHeightWarnMm: 200,
   viewAngleWarnDeg: 12,
   uncertaintyFloorMm: 0.20,  // never state better than this (see README)
   printScaleTolerance: 0.005, // sheet print scale as confirmed by a ruler: 100 mm line within 0.5 mm
@@ -43,6 +47,10 @@ const REASONS = {
   PERSPECTIVE: {
     title: 'Photo was taken at too steep an angle',
     fix: 'Hold the phone flat and directly above the sheet so the marker looks square, then retake.',
+  },
+  TOO_CLOSE: {
+    title: 'Phone is too close to the ring',
+    fix: 'Hold the phone about 30 cm above the sheet and retake. From close up, the height of the ring itself makes the opening look larger than it is.',
   },
   NO_RING: {
     title: 'No ring found next to the marker',
@@ -339,15 +347,28 @@ function findHoleCandidates(cv, coarseRgba, Hi2pCoarse, coarsePxPerMm, paperRef,
   cv.warpPerspective(ones, valid, Mmat, size, cv.INTER_NEAREST, cv.BORDER_CONSTANT, new cv.Scalar(0));
   ones.delete(); Mmat.delete();
 
-  // Paper brightness map: large max-filter then blur (removes ring, marker, text).
+  // Paper brightness map. Things darker than paper (ring, marker, text) are removed by a
+  // large max-filter. Things BRIGHTER than paper must be removed first or the max-filter
+  // spreads them over everything nearby: highlights on polished metal, and the area outside
+  // the photo. So: zero outside the photo, min-filter (removes bright features narrower
+  // than 5 mm), max-filter, then a blur that ignores the area outside the photo.
   const g = new cv.Mat();
   cv.cvtColor(rect, g, cv.COLOR_RGBA2GRAY);
   const bg = new cv.Mat();
-  const k = (Math.round(40 * S) | 1);
-  const kernel = cv.Mat.ones(k, k, cv.CV_8U);
-  cv.dilate(g, bg, kernel);
-  cv.blur(bg, bg, new cv.Size(k, k));
-  kernel.delete();
+  cv.bitwise_and(g, valid, bg);
+  const ke = (Math.round(5 * S) | 1), k = (Math.round(45 * S) | 1);
+  const kernelE = cv.Mat.ones(ke, ke, cv.CV_8U), kernel = cv.Mat.ones(k, k, cv.CV_8U);
+  cv.erode(bg, bg, kernelE);
+  cv.dilate(bg, bg, kernel);
+  kernelE.delete(); kernel.delete();
+  const bgF = new cv.Mat(), wF = new cv.Mat();
+  bg.convertTo(bgF, cv.CV_32F);
+  cv.threshold(bgF, wF, 0.5, 1, cv.THRESH_BINARY);
+  cv.blur(bgF, bgF, new cv.Size(k, k));
+  cv.blur(wF, wF, new cv.Size(k, k));
+  const bgd = bgF.data32F, wd = wF.data32F, bgOut = bg.data;
+  for (let i = 0; i < N * N; i++) bgOut[i] = wd[i] > 0.02 ? Math.min(255, bgd[i] / wd[i]) : 0;
+  bgF.delete(); wF.delete();
 
   const mask = new cv.Mat(N, N, cv.CV_8UC1);
   const rd = rect.data, gd = g.data, bd = bg.data, vd = valid.data, md = mask.data;
@@ -509,7 +530,9 @@ function refineInnerBoundary(gray, w, h, Hp2i, cand, pxPerMm) {
   let out = null;
   const nRays = 240;
   const step = 0.5 / pxPerMm; // half a pixel, in mm
-  const tol = Math.max(0.05, 0.6 / pxPerMm);
+  // How far an edge point may sit from the circle and still count as agreeing with it.
+  // Real rings are not perfect circles and their edges carry bevels and reflections.
+  const tol = Math.max(CONFIG.edgeTolMm, 1.0 / pxPerMm);
   for (let pass = 0; pass < 3; pass++) {
     const win = pass === 0 ? Math.min(2.5, 0.35 * cand.r) : 1.5;
     const m = Math.round(2 * win / step) + 1;
@@ -590,6 +613,10 @@ export function measure(cv, img, opts = {}) {
   const t0 = now();
   const { data, width: W, height: H } = img;
   const result = { status: 'retake', reasons: [], warnings: [], checks: {}, overlay: {}, timingMs: {} };
+  // Plane coordinates assume a 20 mm marker. If the sheet was resized in printing, the
+  // ruler reading of its check line gives the true size of everything on it.
+  const printScale = Number.isFinite(opts.printScale) && opts.printScale > 0 ? opts.printScale : 1;
+  result.printScale = printScale;
   const fail = (code, extra) => {
     result.reasons.push({ code, ...REASONS[code], ...(extra || {}) });
     result.timingMs.total = now() - t0;
@@ -629,6 +656,7 @@ export function measure(cv, img, opts = {}) {
     const Hi2p = invert3(Hp2i);
     const geo = localGeometry(Hp2i, 10, 10);
     const pose = approxPose(Hp2i, W, H);
+    pose.heightMm *= printScale; // plane units assume a 20 mm marker; convert to real millimetres
     const blurMm = refined.blurPx / geo.pxPerMm;
     result.overlay.marker = refined.quad;
     result.checks = {
@@ -640,6 +668,7 @@ export function measure(cv, img, opts = {}) {
     if (geo.pxPerMm < CONFIG.minPxPerMm) return fail('LOW_RES');
     if (pose.tiltDeg > CONFIG.tiltRejectDeg || geo.tiltDeg > CONFIG.foreshorteningRejectDeg) return fail('PERSPECTIVE');
     if (blurMm > CONFIG.blurRejectMm) return fail('BLURRY');
+    if (pose.heightMm < CONFIG.minCameraHeightMm) return fail('TOO_CLOSE');
 
     // 2. ring candidates in a rectified, low-resolution view
     const t2 = now();
@@ -660,6 +689,7 @@ export function measure(cv, img, opts = {}) {
     const t3 = now();
     const measured = cands.map(c => ({ cand: c, fit: refineInnerBoundary(gray, W, H, Hp2i, c, geo.pxPerMm) }));
     result.timingMs.refine = now() - t3;
+    if (opts.debug) result.debugFits = measured;
     const outline = (c) => {
       const pts = [];
       for (let i = 0; i < 120; i++) {
@@ -697,19 +727,20 @@ export function measure(cv, img, opts = {}) {
       inlierFrac: fit.inlierFrac, fitRmsMm: fit.rmsMm, arcGapDeg: fit.gapDeg, ringToMarkerMm: distMm, viewAngleDeg,
     });
     if (distMm > CONFIG.ringFarMm) return fail('RING_FAR');
-    if (fit.inlierFrac < CONFIG.minInlierFrac || fit.gapDeg > CONFIG.maxArcGapDeg) return fail('NOT_ROUND');
+    // On real metal, bevels and reflections pull part of the edge off the circle. A circle is
+    // still well determined by fewer agreeing points if they are spread all round the ring.
+    const inlierMin = fit.gapDeg <= CONFIG.spreadGapDeg ? CONFIG.minInlierFracSpread : CONFIG.minInlierFrac;
+    result.checks.inlierMin = inlierMin;
+    if (fit.inlierFrac < inlierMin || fit.gapDeg > CONFIG.maxArcGapDeg) return fail('NOT_ROUND');
     if (fit.rmsMm > CONFIG.maxFitRmsMm) return fail('POOR_BOUNDARY');
 
     // 4. estimate + uncertainty model (see README: this is a model, not a guarantee)
-    // Plane coordinates assume a 20 mm marker. If the sheet was resized in printing, the
-    // ruler reading of its check line gives the true size of everything on it.
-    const printScale = Number.isFinite(opts.printScale) && opts.printScale > 0 ? opts.printScale : 1;
     const D = 2 * c.r * printScale;
-    result.printScale = printScale;
     const u = {
       resolution: 0.5 / geo.pxPerMm,                         // half a pixel at the photo's scale
       blur: 0.4 * blurMm,                                    // edge softness
-      fit: 2 * fit.rmsMm * (1 + (fit.gapDeg / 180) ** 2),    // scatter of the edge, worse if only part of the circle agrees
+      // scatter of the edge; worse if part of the circle is hidden or less than half of it agrees
+      fit: 2 * fit.rmsMm * printScale * (1 + (fit.gapDeg / 180) ** 2) * Math.max(1, CONFIG.minInlierFrac / fit.inlierFrac),
       scale: D * 2 * refined.lineRmsPx / (CONFIG.markerSideMm * geo.pxPerMm), // marker edge localisation
       printScale: D * CONFIG.printScaleTolerance / printScale, // ruler reading of the check line is good to about 0.5 mm
       perspective: D * 0.001 * pose.tiltDeg,                 // residual after rectification
@@ -725,7 +756,8 @@ export function measure(cv, img, opts = {}) {
     if (blurMm > CONFIG.blurWarnMm) result.warnings.push('Photo is slightly soft. A sharper photo will reduce the uncertainty.');
     if (pose.heightMm < CONFIG.minCameraHeightWarnMm) result.warnings.push('Phone was very close to the ring. From about 30 cm the ring\'s height distorts the result less.');
     if (viewAngleDeg > CONFIG.viewAngleWarnDeg) result.warnings.push('Ring was not directly under the camera. Centre it in the photo to reduce parallax.');
-    if (fit.inlierFrac < 0.85) result.warnings.push('Part of the inner edge was hidden by shadow, glare or the ring\'s own rim. The visible part was used.');
+    if (fit.inlierFrac < CONFIG.minInlierFrac) result.warnings.push('Less than half of the inner edge agrees with one circle (reflections or an irregular edge). The agreeing points are spread all round the ring, so it was measured, with a larger uncertainty. Check the close-up.');
+    else if (fit.inlierFrac < 0.85) result.warnings.push('Part of the inner edge was hidden by shadow, glare or the ring\'s own rim. The visible part was used.');
     result.timingMs.total = now() - t0;
     return result;
   } finally {

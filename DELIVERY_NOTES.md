@@ -20,31 +20,39 @@ Ground truth is in `test-set/ground-truth.csv`, recorded before testing. The app
 
 ### Real photographs
 
-The printed sheet used for these photos came out at 84 % of nominal size (check line 84 mm by ruler). The sheet reading is recorded per photo in `ground-truth.csv` (`sheet_line_mm`) and applied the same way the page applies it.
+All four are photos from my phone of my own printed sheet. The sheet came out at 84 % of nominal size (check line 84 mm by ruler), so each photo's row in `ground-truth.csv` carries `sheet_line_mm = 84`, applied the same way the page applies it.
+
+Measuring tool for the object: a ruler with 1 mm marks, inner edge to inner edge, read before any photo was uploaded. Its resolution (±0.5 mm) is coarser than the app's stated uncertainty, so the 0.05 mm error below means "agrees with the ruler", not "accurate to 0.05 mm".
 
 | Photo | Kind | Expected | Actual | True inner Ø (mm) | Estimated Ø (mm) | Absolute error (mm) | Stated uncertainty | Error within uncertainty | Size | Time (ms, Node) | Outcome |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| real-01-sheet-only-no-ring.jpg | real-photo | retake: NO_RING | retake: NO_RING | - |  |  |  |  |  | 241 | pass |
+| real-01-sheet-only-no-ring.jpg | real-photo | retake: NO_RING | retake: NO_RING | - |  |  |  |  |  | 261 | pass |
+| real-02-keyring-25mm.jpg | real-object | measure | ok | 25.0 | 25.05 | 0.05 | ±0.54 | yes | ISO 79 | 327 | pass |
+| real-03-keyring-too-close-a.jpg | real-object | retake: TOO_CLOSE | retake: TOO_CLOSE | - |  |  |  |  |  | 180 | pass |
+| real-04-keyring-too-close-b.jpg | real-object | retake: TOO_CLOSE | retake: TOO_CLOSE | - |  |  |  |  |  | 154 | pass |
 
-`real-01` is a phone photo of the sheet alone, on a red cloth, with nothing to measure. Its expected outcome was written down after the first run, not before; it is included because it is the first real photograph the marker detection was run on (pattern match 99.5 %, 11.5 px/mm, edge blur 0.26 mm).
+- `real-02` is a steel split key ring, inner diameter 25 mm by ruler. Not a finger ring: it is the ring-shaped object I had.
+- `real-03` and `real-04` are the same key ring from about 10 cm. They are the unsupported photos. The "too close" rule was added because of them: before it, they measured about 26.3 mm (1.3 mm high), since from that distance the top of the band is what the camera sees.
+- `real-01` is the sheet alone on a red cloth.
+- Expected outcomes for `real-01`, `real-03` and `real-04` were written after their first run, not before. Only `real-02` has ground truth recorded in advance.
 
-**[LAMINE: ring photos — at least two measured objects. Add rows to ground-truth.csv, run `npm test`, paste the rows here. State the measuring tool and its resolution.]**
+**[LAMINE: second measured object — add its row and photo, run `npm test`, paste the row here.]**
 
 ### Synthetic renders (labelled synthetic, regression tests only)
 
 | Photo | Kind | Expected | Actual | True inner Ø (mm) | Estimated Ø (mm) | Absolute error (mm) | Stated uncertainty | Error within uncertainty | Size | Time (ms, Node) | Outcome |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| synthetic-01-flat-overhead.jpg | synthetic | measure | ok | 17.30 | 17.29 | 0.01 | ±0.32 | yes | ISO 54 | 162 | pass |
-| synthetic-02-ring-h3-tilt4.jpg | synthetic | measure | ok | 18.90 | 18.80 | 0.10 | ±0.37 | yes | ISO 59 | 200 | pass |
-| synthetic-03-wide-band-h6-offaxis.jpg | synthetic | measure | ok | 16.50 | 16.45 | 0.05 | ±0.32 | yes | ISO 52 | 151 | pass |
-| synthetic-04-cutout-card-uneven-light.jpg | synthetic | measure | ok | 20.00 | 20.01 | 0.01 | ±0.37 | yes | ISO 63 | 166 | pass |
-| synthetic-05-ring-glare-soft.jpg | synthetic | measure | ok | 15.70 | 15.53 | 0.17 | ±0.33 | yes | ISO 49 | 122 | pass |
-| synthetic-06-two-rings.jpg | synthetic | choose | choose (2 rings) | 16.10 / 19.40 | 16.03 / 19.28 | 0.07 / 0.12 | ±0.31 / ±0.35 | yes / yes | ISO 50 / ISO 61 | 225 | pass |
-| synthetic-07-steep-angle.jpg | synthetic | retake: PERSPECTIVE | retake: PERSPECTIVE | - |  |  |  |  |  | 51 | pass |
-| synthetic-08-out-of-focus.jpg | synthetic | retake: BLURRY | retake: BLURRY | - |  |  |  |  |  | 53 | pass |
-| synthetic-09-no-marker.jpg | synthetic | retake: NO_MARKER | retake: NO_MARKER | - |  |  |  |  |  | 55 | pass |
-| synthetic-10-motion-blur.jpg | synthetic | retake: BLURRY | retake: BLURRY | - |  |  |  |  |  | 52 | pass |
-| synthetic-11-too-far.jpg | synthetic | retake: LOW_RES | retake: LOW_RES | - |  |  |  |  |  | 84 | pass |
+| synthetic-01-flat-overhead.jpg | synthetic | measure | ok | 17.30 | 17.29 | 0.01 | ±0.32 | yes | ISO 54 | 213 | pass |
+| synthetic-02-ring-h3-tilt4.jpg | synthetic | measure | ok | 18.90 | 18.80 | 0.10 | ±0.37 | yes | ISO 59 | 215 | pass |
+| synthetic-03-wide-band-h6-offaxis.jpg | synthetic | measure | ok | 16.50 | 16.45 | 0.05 | ±0.32 | yes | ISO 52 | 215 | pass |
+| synthetic-04-cutout-card-uneven-light.jpg | synthetic | measure | ok | 20.00 | 20.01 | 0.01 | ±0.37 | yes | ISO 63 | 188 | pass |
+| synthetic-05-ring-glare-soft.jpg | synthetic | measure | ok | 15.70 | 15.52 | 0.18 | ±0.34 | yes | ISO 49 | 142 | pass |
+| synthetic-06-two-rings.jpg | synthetic | choose | choose (2 rings) | 16.10 / 19.40 | 16.02 / 19.28 | 0.08 / 0.12 | ±0.31 / ±0.35 | yes / yes | ISO 50 / ISO 61 | 206 | pass |
+| synthetic-07-steep-angle.jpg | synthetic | retake: PERSPECTIVE | retake: PERSPECTIVE | - |  |  |  |  |  | 56 | pass |
+| synthetic-08-out-of-focus.jpg | synthetic | retake: BLURRY | retake: BLURRY | - |  |  |  |  |  | 60 | pass |
+| synthetic-09-no-marker.jpg | synthetic | retake: NO_MARKER | retake: NO_MARKER | - |  |  |  |  |  | 104 | pass |
+| synthetic-10-motion-blur.jpg | synthetic | retake: BLURRY | retake: BLURRY | - |  |  |  |  |  | 51 | pass |
+| synthetic-11-too-far.jpg | synthetic | retake: LOW_RES | retake: LOW_RES | - |  |  |  |  |  | 104 | pass |
 
 Observed on the synthetic set:
 
@@ -54,7 +62,12 @@ Observed on the synthetic set:
 
 ## What failed or is unfinished
 
-- No real photographs were available while the code was written, so every threshold is tuned on synthetic renders only. Real metal (reflections, bevels, comfort-fit inner profiles) may behave differently. **[LAMINE: update after real photos.]**
+- No real photographs were available while the code was written, so every threshold was first tuned on synthetic renders. The first three real photos were all rejected. Causes found and fixed:
+  - The paper-brightness estimate used a maximum filter, so anything brighter than paper (highlights on polished metal, and the area outside the photo) made nearby paper look dark and hid the ring. It now removes narrow bright features first and ignores the area outside the photo.
+  - Edge points had to sit within 0.05 mm of one circle. Real metal has bevels and reflections; the band is now 0.12 mm (at least one pixel).
+  - At least half the edge had to agree with one circle. On the key ring 39 % agrees, spread all round. The rule now also accepts 30 % when no stretch over 120° lacks agreeing points, with a warning and a larger uncertainty.
+  - Photos from about 10 cm read 1.3 mm high. They are now rejected as too close.
+- Real-photo evidence is one object in one lighting condition. Thresholds changed on the strength of three photos; that is tuning to a sample, not validation.
 - First approach, an ellipse fit to all edge points, read 0.35–0.5 mm low on rings with height and shadow and was replaced by the circle-consensus method.
 - A shadow as dark as the ring itself hides the edge on that side. The method then works from the visible part, and asks for a retake if less than half the circle is usable.
 - The page cannot detect a sheet that the printer resized (for example an A4 file on US Letter paper with "fit to page"). Every result is then wrong by the same percentage. The ruler check on the sheet is the only guard, and the uncertainty allows 0.5 % for it.

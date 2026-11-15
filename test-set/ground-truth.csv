@@ -11,3 +11,6 @@ synthetic/synthetic-09-no-marker.jpg,synthetic,retake,NO_MARKER,17.30,render par
 synthetic/synthetic-10-motion-blur.jpg,synthetic,retake,BLURRY,17.30,render parameter (scripts/synth.py),horizontal motion blur (unsupported)
 synthetic/synthetic-11-too-far.jpg,synthetic,retake,LOW_RES,17.30,render parameter (scripts/synth.py),marker too small in frame (unsupported)
 photos/real-01-sheet-only-no-ring.jpg,real-photo,retake,NO_RING,-,no ring in the photo,phone photo of the printed sheet on a red cloth; sheet printed at 84 % (check line 84 mm by ruler); nothing to measure,84
+photos/real-02-keyring-25mm.jpg,real-object,measure,,25.0,ruler with 1 mm marks; inner edge to inner edge; measured before testing,steel split key ring on the 84 % sheet from about 25 cm,84
+photos/real-03-keyring-too-close-a.jpg,real-object,retake,TOO_CLOSE,25.0,ruler with 1 mm marks,same key ring photographed from about 10 cm (unsupported: too close),84
+photos/real-04-keyring-too-close-b.jpg,real-object,retake,TOO_CLOSE,25.0,ruler with 1 mm marks,same key ring photographed from about 10 cm (unsupported: too close),84

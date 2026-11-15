@@ -228,13 +228,15 @@ function checksHtml(res) {
   else {
     row('Scale marker (20 mm)', `match ${fmt(c.markerScore * 100, 0)}%`, 'pass');
     row(`Photo scale (min ${CONFIG.minPxPerMm} px/mm)`, `${fmt(c.pxPerMm)} px/mm`, c.pxPerMm >= CONFIG.minPxPerMm ? 'pass' : 'fail');
+    if (c.cameraHeightMm !== undefined) row(`Camera distance (min ${CONFIG.minCameraHeightMm / 10} cm, estimated)`, `≈ ${fmt(c.cameraHeightMm / 10, 0)} cm`, c.cameraHeightMm < CONFIG.minCameraHeightMm ? 'fail' : c.cameraHeightMm < CONFIG.minCameraHeightWarnMm ? 'warn' : 'pass');
     row(`Sharpness: edge blur (max ${CONFIG.blurRejectMm} mm)`, `${fmt(c.blurMm, 2)} mm`, c.blurMm > CONFIG.blurRejectMm ? 'fail' : c.blurMm > CONFIG.blurWarnMm ? 'warn' : 'pass');
     const steep = c.tiltDeg > CONFIG.tiltRejectDeg || c.foreshorteningDeg > CONFIG.foreshorteningRejectDeg;
     row(`Camera angle from overhead (max ${CONFIG.tiltRejectDeg}°)`, `≈ ${fmt(Math.max(c.tiltDeg, steep ? c.foreshorteningDeg : 0), 0)}°`, steep ? 'fail' : c.tiltDeg > CONFIG.tiltWarnDeg ? 'warn' : 'pass');
   }
   if (c.inlierFrac !== undefined) {
-    const bad = c.inlierFrac < CONFIG.minInlierFrac || c.arcGapDeg > CONFIG.maxArcGapDeg;
-    row(`Inner edge agreeing with one circle (min ${CONFIG.minInlierFrac * 100}%)`, `${fmt(c.inlierFrac * 100, 0)}%`, bad ? 'fail' : c.inlierFrac < 0.85 ? 'warn' : 'pass');
+    const need = c.inlierMin ?? CONFIG.minInlierFrac;
+    const bad = c.inlierFrac < need || c.arcGapDeg > CONFIG.maxArcGapDeg;
+    row(`Inner edge agreeing with one circle (min ${fmt(need * 100, 0)}%)`, `${fmt(c.inlierFrac * 100, 0)}%`, bad ? 'fail' : c.inlierFrac < 0.85 ? 'warn' : 'pass');
     row(`Ring to marker distance (max ${CONFIG.ringFarMm} mm)`, `${fmt(c.ringToMarkerMm, 0)} mm`, c.ringToMarkerMm > CONFIG.ringFarMm ? 'fail' : 'pass');
   }
   const flagged = rows.filter((r) => !r.includes('class="pass"')).length;
