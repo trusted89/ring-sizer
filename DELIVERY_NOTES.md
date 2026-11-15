@@ -118,7 +118,7 @@ Examples of checking AI output:
 
 1. The generated marker PDF was rendered at 600 dpi and measured in pixels (`scripts/dev/sheet-check.mjs`): the marker came out 20.02 × 19.98 mm. The same check showed the 100 mm print-check line was 100.3 mm from outer edge to outer edge, because its end marks were 0.3 mm thick and centred on the ends. The sheet was corrected (now 99.99 mm, with the measuring edges and a 99.5–100.5 mm tolerance stated on it). Rings drawn on the rasterised sheet at 15.00, 18.00 and 21.50 mm then measured 14.98, 17.98 and 21.47 mm.
 2. The first measurement code was run against renders with known diameters. It failed 5 of 11 cases, which exposed a wrong shadow model in the renderer and the ellipse-fit bias; both were fixed and the cases re-run.
-3. **[LAMINE: my own check, e.g. ruler on the printed marker, caliper against the app on a real ring.]**
+3. My own checks. I measured the sheet's check line with a ruler: 84 mm, where the sheet said "exactly 100 mm". That exposed the scaled print and led to finding the flaw in the line's end marks (example 1). I measured each object with a ruler before testing and compared the app against it (table above). I photographed a coin of published diameter as a check that does not depend on my ruler, and I tried the live check on my own phone, which showed the marker-based angle reading about 10 degrees high.
 
 ## Time spent
 
