@@ -130,7 +130,9 @@ async function run(select) {
 // and takes the photo by itself once the position has been good for about a second.
 // It is guidance only: the photo still goes through measure() and every check. The upload
 // button works without it, and on browsers without camera access this button stays hidden.
-const LIVE = { minCm: 17, maxCm: 38, maxTiltDeg: 9, maxOffCentre: 0.3, everyMs: 220, maxSide: 960, greenAfter: 2, shootAfter: 5 };
+// minPhotoPxPerMm: the photo the live check can take is often small, so "too far" is judged by how
+// many pixels the ring will get, not by distance alone.
+const LIVE = { minCm: 16, maxCm: 38, minPhotoPxPerMm: 6.5, maxTiltDeg: 9, maxRingOff: 0.12, everyMs: 220, maxSide: 960, greenAfter: 2, shootAfter: 5 };
 const liveEl = $('#live'), liveVideo = $('#liveVideo'), liveMsg = $('#liveMsg'), liveInfo = $('#liveInfo');
 const liveBtn = $('#liveBtn'), liveShotBtn = $('#liveShot'), liveLevel = $('#liveLevel'), liveDot = $('#liveDot');
 let liveStream = null, liveTimer = null, liveGood = 0, liveTaking = false;
@@ -154,7 +156,7 @@ function onOrient(e) {
 const sensorTilt = () => (orient && performance.now() - orient.t < 1500 ? Math.hypot(orient.beta, orient.gamma) : null);
 
 // What to tell the user for one assessed frame. Most important problem first.
-function liveAdvice(a) {
+function liveAdvice(a, previewScale) {
   const sensor = sensorTilt();
   if (!a.marker) return { state: 'bad', text: 'Point the camera at the sheet: marker not found', info: sensor === null ? '' : `phone tilt ${fmt(sensor, 0)}°` };
   const cm = a.cameraHeightMm / 10;
@@ -162,9 +164,9 @@ function liveAdvice(a) {
   const tilt = sensor === null ? a.tiltDeg : sensor, tiltMax = sensor === null ? LIVE.maxTiltDeg : CONFIG.sensorLevelDeg;
   const info = `distance ≈ ${fmt(cm, 0)} cm · tilt ≈ ${fmt(tilt, 0)}°`;
   if (cm < LIVE.minCm) return { state: 'bad', text: 'Too close: move the phone back', info };
-  if (cm > LIVE.maxCm) return { state: 'bad', text: 'Too far: move the phone closer', info };
+  if (cm > LIVE.maxCm || a.pxPerMm / previewScale < LIVE.minPhotoPxPerMm) return { state: 'bad', text: 'Too far: move the phone closer', info };
   if (tilt > tiltMax) return { state: 'bad', text: sensor === null ? 'Level the phone: hold it flat above the sheet' : 'Level the phone: bring the dot into the circle', info };
-  if (a.offCentre > LIVE.maxOffCentre) return { state: 'bad', text: 'Move the marker and ring to the middle of the picture', info };
+  if (a.ringOffCentre > LIVE.maxRingOff) return { state: 'bad', text: 'Put the ring inside the dashed circle', info };
   return { state: 'good', text: 'Good. Hold still…', info };
 }
 
@@ -178,7 +180,7 @@ async function liveTick() {
       liveCanvas.width = Math.round(vw * k); liveCanvas.height = Math.round(vh * k);
       const ctx = liveCanvas.getContext('2d', { willReadFrequently: true });
       ctx.drawImage(liveVideo, 0, 0, liveCanvas.width, liveCanvas.height);
-      const advice = liveAdvice(assessFrame(cv, ctx.getImageData(0, 0, liveCanvas.width, liveCanvas.height), { printScale }));
+      const advice = liveAdvice(assessFrame(cv, ctx.getImageData(0, 0, liveCanvas.width, liveCanvas.height), { printScale }), k);
       // a few good frames in a row before turning green, so it does not flicker
       liveGood = advice.state === 'good' ? liveGood + 1 : 0;
       const good = liveGood >= LIVE.greenAfter;
