@@ -77,7 +77,7 @@ document.querySelectorAll('[data-sample]').forEach((b) => b.addEventListener('cl
   try {
     const res = await fetch(b.dataset.sample);
     if (!res.ok) throw new Error('Sample photo could not be loaded.');
-    handleBlob(await res.blob(), `${b.textContent.trim()} (synthetic sample)`);
+    handleBlob(await res.blob(), `${b.textContent.trim()} (synthetic sample)`, true);
   } catch (e) { showError(e.message); }
 }));
 
@@ -102,12 +102,12 @@ async function decode(blob) {
   return { canvas, imageData: ctx.getImageData(0, 0, canvas.width, canvas.height) };
 }
 
-async function handleBlob(blob, name) {
+async function handleBlob(blob, name, isSample = false) {
   showBusy('Measuring…');
   try {
     const t0 = performance.now();
     const { canvas, imageData } = await decode(blob);
-    current = { canvas, imageData, decodeMs: performance.now() - t0, name };
+    current = { canvas, imageData, decodeMs: performance.now() - t0, name, isSample };
     await run();
   } catch (e) { showError(e.message || String(e)); }
 }
@@ -116,7 +116,8 @@ async function run(select) {
   const cv = await cvReady;
   await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))); // let the spinner paint
   const t0 = performance.now();
-  const res = measure(cv, current.imageData, { select, printScale });
+  // Sample photos are rendered at nominal size, so the sheet correction does not apply to them.
+  const res = measure(cv, current.imageData, { select, printScale: current.isSample ? 1 : printScale });
   current.measureMs = performance.now() - t0;
   render(res);
 }
