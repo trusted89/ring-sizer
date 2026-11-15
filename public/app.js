@@ -259,7 +259,9 @@ if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
 
 // ---------- output ----------
 // The result takes the place of the instructions, so it is visible without scrolling.
-const BAR = `<div class="res-bar"><label class="btn primary" for="file">Measure another</label><button class="btn ghost" type="button" data-back>Instructions &amp; samples</button></div>`;
+// One tap from any result to the next photo: upload, live check, or back to the start screen.
+const HAS_CAMERA = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+const BAR = `<div class="res-bar"><label class="btn primary" for="file">Upload photo</label>${HAS_CAMERA ? '<button class="btn ghost" type="button" data-live>Live check</button>' : ''}<button class="btn ghost" type="button" data-back>Start over</button></div>`;
 function showResult(html) {
   out.innerHTML = html;
   out.hidden = false;
@@ -272,7 +274,10 @@ function showStart() {
   out.innerHTML = '';
   window.scrollTo(0, 0);
 }
-out.addEventListener('click', (ev) => { if (ev.target.closest('[data-back]')) showStart(); });
+out.addEventListener('click', (ev) => {
+  if (ev.target.closest('[data-back]')) showStart();
+  else if (ev.target.closest('[data-live]')) startLive();
+});
 function showBusy(msg) {
   showResult(`<div class="busy"><div class="spin"></div><p style="margin:0">${esc(msg)}</p></div>`);
 }
@@ -417,7 +422,7 @@ function render(res) {
     const r = res.reasons[0];
     html += `<div class="verdict retake"><div class="ico">↻</div><div><h3>Retake needed: ${esc(r.title)}</h3><p>${esc(r.fix)}</p></div></div>`;
     html += `<p class="fine">No diameter is shown because the photo does not meet the conditions needed for a trustworthy measurement.</p>`;
-    if (current.fromLive && r.code === 'LOW_RES') html += `<p class="notes" style="padding-left:12px">The live camera on this phone gives a small picture (${current.canvas.width} × ${current.canvas.height} px). Keep the phone where it was and use "Measure another" to take the photo with the phone's own camera.</p>`;
+    if (current.fromLive && r.code === 'LOW_RES') html += `<p class="notes" style="padding-left:12px">The live camera on this phone gives a small picture (${current.canvas.width} × ${current.canvas.height} px). Keep the phone where it was and use "Upload photo" to take the photo with the phone's own camera.</p>`;
     if (res.overlay.marker || res.overlay.candidates) html += viewsHtml(res);
   }
   html += checksHtml(res) + meterHtml();
