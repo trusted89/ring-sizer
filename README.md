@@ -47,6 +47,10 @@ npm run synth        # synthetic test photos
 
 All limits live in `CONFIG` at the top of `public/measure.js`.
 
+### Live check (beta)
+
+The "Live check" button opens the camera and gives guidance before the photo is taken: marker not found, too close, too far, level the phone, move the marker and ring to the middle, or good. It runs the marker stage of the pipeline on small preview frames about four times a second (`assessFrame` in `public/measure.js`). It is guidance only. The photo it takes goes through `measure()` and every check, exactly like an uploaded photo, and the upload button works without it. The button is hidden where the browser gives no camera access.
+
 ### Resized sheets
 
 Printers often resize a page without saying so. The sheet therefore carries a 100 mm check line. If it does not measure 99.5–100.5 mm, the best fix is a reprint at 100 %. When that is not possible, the page accepts the ruler reading of the check line (70–130 mm), stores it in the browser, and multiplies every result by reading ÷ 100. The result then says that it was adjusted.

@@ -615,6 +615,46 @@ function approxPose(Hp2i, W, H) {
   return { tiltDeg, camXY: [C[0], C[1]], heightMm: Math.abs(C[2]) };
 }
 
+// ---------- live guidance ----------
+
+/**
+ * Quick look at one camera preview frame: is the marker visible, how far away is the phone,
+ * how tilted is it, and is the marker near the middle of the frame. Used for guidance
+ * before the photo is taken. It never produces a measurement; the photo itself still goes
+ * through measure() and all of its checks.
+ * @param img  { data: Uint8ClampedArray RGBA, width, height }  a small preview frame
+ * @param opts { printScale?: number }
+ */
+export function assessFrame(cv, img, opts = {}) {
+  const { data, width: W, height: H } = img;
+  const printScale = Number.isFinite(opts.printScale) && opts.printScale > 0 ? opts.printScale : 1;
+  const gray = new Uint8Array(W * H);
+  for (let i = 0, p = 0; i < W * H; i++, p += 4) gray[i] = (data[p] * 77 + data[p + 1] * 150 + data[p + 2] * 29) >> 8;
+  const grayMat = new cv.Mat(H, W, cv.CV_8UC1);
+  grayMat.data.set(gray);
+  try {
+    const found = findMarkerCoarse(cv, grayMat, gray, W, H);
+    if (!found || found.score < CONFIG.markerMinScore) return { marker: false };
+    const refined = refineMarker(gray, W, H, found.quad);
+    if (!refined) return { marker: false };
+    const Hp2i = homographyFrom4(PLANE_CORNERS, refined.quad);
+    if (!Hp2i) return { marker: false };
+    const geo = localGeometry(Hp2i, 10, 10);
+    const pose = approxPose(Hp2i, W, H);
+    const [mx, my] = applyH(Hp2i, 10, 10);
+    return {
+      marker: true,
+      quad: refined.quad,
+      pxPerMm: geo.pxPerMm,
+      tiltDeg: pose.tiltDeg,
+      cameraHeightMm: pose.heightMm * printScale,
+      offCentre: Math.hypot(mx - W / 2, my - H / 2) / Math.min(W, H), // 0 = marker in the middle of the frame
+    };
+  } finally {
+    grayMat.delete();
+  }
+}
+
 // ---------- main entry ----------
 
 /**

@@ -1,5 +1,5 @@
 // Interface for the ring measurement prototype. All measurement logic lives in measure.js.
-import { measure, CONFIG } from './measure.js';
+import { measure, assessFrame, CONFIG } from './measure.js';
 import { sizeFor, tableRows, TABLE } from './sizing.js';
 
 const MAX_SIDE = 4096; // photos larger than this are downscaled before measuring
@@ -102,12 +102,12 @@ async function decode(blob) {
   return { canvas, imageData: ctx.getImageData(0, 0, canvas.width, canvas.height) };
 }
 
-async function handleBlob(blob, name, isSample = false) {
+async function handleBlob(blob, name, isSample = false, fromLive = false) {
   showBusy('Measuring…');
   try {
     const t0 = performance.now();
     const { canvas, imageData } = await decode(blob);
-    current = { canvas, imageData, decodeMs: performance.now() - t0, name, isSample };
+    current = { canvas, imageData, decodeMs: performance.now() - t0, name, isSample, fromLive };
     await run();
   } catch (e) { showError(e.message || String(e)); }
 }
@@ -120,6 +120,102 @@ async function run(select) {
   const res = measure(cv, current.imageData, { select, printScale: current.isSample ? 1 : printScale });
   current.measureMs = performance.now() - t0;
   render(res);
+}
+
+// ---------- live camera check (optional) ----------
+// A preview that says "move back", "level the phone" or "good" BEFORE the photo is taken.
+// It is guidance only: the photo still goes through measure() and every check. The upload
+// button works without it, and on browsers without camera access this button stays hidden.
+const LIVE = { minCm: 17, maxCm: 38, maxTiltDeg: 9, maxOffCentre: 0.3, everyMs: 220, maxSide: 960 };
+const liveEl = $('#live'), liveVideo = $('#liveVideo'), liveMsg = $('#liveMsg'), liveInfo = $('#liveInfo');
+const liveBtn = $('#liveBtn'), liveShotBtn = $('#liveShot');
+let liveStream = null, liveTimer = null, liveGood = 0;
+const liveCanvas = document.createElement('canvas');
+
+// What to tell the user for one assessed frame. Most important problem first.
+function liveAdvice(a) {
+  if (!a.marker) return { state: 'bad', text: 'Point the camera at the sheet: marker not found', info: '' };
+  const cm = a.cameraHeightMm / 10;
+  const info = `distance ≈ ${fmt(cm, 0)} cm · tilt ≈ ${fmt(a.tiltDeg, 0)}°`;
+  if (cm < LIVE.minCm) return { state: 'bad', text: 'Too close: move the phone back', info };
+  if (cm > LIVE.maxCm) return { state: 'bad', text: 'Too far: move the phone closer', info };
+  if (a.tiltDeg > LIVE.maxTiltDeg) return { state: 'bad', text: 'Level the phone: hold it flat above the sheet', info };
+  if (a.offCentre > LIVE.maxOffCentre) return { state: 'bad', text: 'Move the marker and ring to the middle of the picture', info };
+  return { state: 'good', text: 'Good. Hold still and take the photo', info };
+}
+
+async function liveTick() {
+  if (!liveStream) return;
+  try {
+    const cv = await cvReady;
+    const vw = liveVideo.videoWidth, vh = liveVideo.videoHeight;
+    if (vw && vh) {
+      const k = Math.min(1, LIVE.maxSide / Math.max(vw, vh));
+      liveCanvas.width = Math.round(vw * k); liveCanvas.height = Math.round(vh * k);
+      const ctx = liveCanvas.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(liveVideo, 0, 0, liveCanvas.width, liveCanvas.height);
+      const advice = liveAdvice(assessFrame(cv, ctx.getImageData(0, 0, liveCanvas.width, liveCanvas.height), { printScale }));
+      // two good frames in a row before turning green, so it does not flicker
+      liveGood = advice.state === 'good' ? liveGood + 1 : 0;
+      const good = liveGood >= 2;
+      liveMsg.textContent = advice.state === 'good' && !good ? 'Almost: hold steady' : advice.text;
+      liveMsg.className = `live-msg ${good ? 'good' : advice.state === 'good' ? 'wait' : ''}`;
+      liveInfo.textContent = advice.info;
+      liveShotBtn.classList.toggle('ready', good);
+    }
+  } catch (e) { liveMsg.textContent = 'Live check stopped working. Cancel and use "Upload a photo".'; liveMsg.className = 'live-msg'; return; }
+  if (liveStream) liveTimer = setTimeout(liveTick, LIVE.everyMs);
+}
+
+async function startLive() {
+  liveEl.hidden = false; liveGood = 0;
+  liveMsg.textContent = 'Starting the camera…'; liveMsg.className = 'live-msg wait'; liveInfo.textContent = '';
+  try {
+    liveStream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } } });
+    liveVideo.srcObject = liveStream;
+    await liveVideo.play();
+    liveTick();
+  } catch (e) {
+    liveStream = null;
+    liveMsg.textContent = 'The camera could not be opened. Cancel and use "Upload a photo".'; liveMsg.className = 'live-msg';
+  }
+}
+
+function stopLive() {
+  clearTimeout(liveTimer);
+  if (liveStream) liveStream.getTracks().forEach((t) => t.stop());
+  liveStream = null; liveVideo.srcObject = null; liveEl.hidden = true;
+}
+
+async function liveShot() {
+  if (!liveStream) return;
+  clearTimeout(liveTimer);
+  liveMsg.textContent = 'Taking the photo…'; liveMsg.className = 'live-msg wait';
+  let blob = null;
+  // Full-resolution still where the browser offers it; otherwise the preview frame at its own size.
+  if ('ImageCapture' in window) {
+    const cap = new ImageCapture(liveStream.getVideoTracks()[0]);
+    try {
+      const pc = await cap.getPhotoCapabilities();
+      blob = await cap.takePhoto({ imageWidth: pc.imageWidth.max, imageHeight: pc.imageHeight.max });
+    } catch { blob = null; }
+    if (!blob) { try { blob = await cap.takePhoto(); } catch { blob = null; } }
+  }
+  if (!blob) {
+    const c = document.createElement('canvas');
+    c.width = liveVideo.videoWidth; c.height = liveVideo.videoHeight;
+    c.getContext('2d').drawImage(liveVideo, 0, 0);
+    blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.95));
+  }
+  stopLive();
+  if (blob) handleBlob(blob, 'Photo from live check', false, true); else showError('The photo could not be taken. Use "Upload a photo".');
+}
+
+if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+  liveBtn.hidden = false;
+  liveBtn.addEventListener('click', startLive);
+  $('#liveCancel').addEventListener('click', stopLive);
+  liveShotBtn.addEventListener('click', liveShot);
 }
 
 // ---------- output ----------
@@ -280,6 +376,7 @@ function render(res) {
     const r = res.reasons[0];
     html += `<div class="verdict retake"><div class="ico">↻</div><div><h3>Retake needed: ${esc(r.title)}</h3><p>${esc(r.fix)}</p></div></div>`;
     html += `<p class="fine">No diameter is shown because the photo does not meet the conditions needed for a trustworthy measurement.</p>`;
+    if (current.fromLive && r.code === 'LOW_RES') html += `<p class="notes" style="padding-left:12px">The live camera on this phone gives a small picture (${current.canvas.width} × ${current.canvas.height} px). Keep the phone where it was and use "Measure another" to take the photo with the phone's own camera.</p>`;
     if (res.overlay.marker || res.overlay.candidates) html += viewsHtml(res);
   }
   html += checksHtml(res) + meterHtml();

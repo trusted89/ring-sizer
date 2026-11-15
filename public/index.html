@@ -70,10 +70,13 @@
           <span class="num" aria-hidden="true">3</span>
           <div>
             <h2 id="s3">Upload the photo</h2>
-            <label class="btn primary" id="pick">
-              <input type="file" id="file" accept="image/*" hidden>
-              <span id="pickLabel">Take or choose a photo</span>
-            </label>
+            <div class="pick-row">
+              <label class="btn primary" id="pick">
+                <input type="file" id="file" accept="image/*" hidden>
+                <span id="pickLabel">Upload a photo</span>
+              </label>
+              <button class="btn ghost" id="liveBtn" type="button" hidden>Live check <span class="beta">beta</span></button>
+            </div>
             <p class="fine" id="engine" role="status">Loading the measurement engine…</p>
           </div>
         </li>
@@ -136,6 +139,18 @@
       </details>
     </section>
   </main>
+
+  <div id="live" class="live" hidden role="dialog" aria-modal="true" aria-label="Live camera check">
+    <video id="liveVideo" playsinline muted></video>
+    <div class="live-top">
+      <p id="liveMsg" class="live-msg" role="status">Starting the camera…</p>
+      <p id="liveInfo" class="live-info"></p>
+    </div>
+    <div class="live-bottom">
+      <button class="btn" id="liveCancel" type="button">Cancel</button>
+      <button class="btn primary" id="liveShot" type="button">Take photo</button>
+    </div>
+  </div>
 
   <footer class="wrap foot">
     <p>Prototype. Uses OpenCV.js (Apache-2.0) for image operations; measurement logic, checks and interface are original work.</p>

@@ -67,6 +67,23 @@ a { color: var(--accent); }
 .flow details.inline { border: 0; padding: 0; }
 .flow details.inline summary { font-weight: 550; font-size: .9rem; color: var(--accent); padding: 0; }
 .privacy { margin: 10px 0 0 !important; }
+.pick-row { display: flex; gap: 8px; align-items: stretch; margin: 4px 0 8px; }
+.pick-row .btn.primary { flex: 1 1 auto; margin: 0; padding: 0 12px; white-space: nowrap; }
+.pick-row #liveBtn { flex: 0 0 auto; min-height: 56px; padding: 0 12px; font-size: .9rem; flex-direction: column; gap: 2px; }
+.beta { font: 600 9px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+
+/* live camera check: full-screen preview with guidance before the photo is taken */
+.live { position: fixed; inset: 0; z-index: 50; background: #000; display: flex; flex-direction: column; }
+.live[hidden] { display: none; }
+.live video { flex: 1 1 auto; min-height: 0; width: 100%; object-fit: contain; background: #000; }
+.live-top { position: absolute; top: 0; left: 0; right: 0; padding: max(12px, env(safe-area-inset-top)) 12px 0; pointer-events: none; }
+.live-msg { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--stop); color: #fff; font: 700 1.1rem/1.25 system-ui, sans-serif; text-align: center; }
+.live-msg.good { background: var(--ok); }
+.live-msg.wait { background: #444; }
+.live-info { margin: 6px 0 0; text-align: center; color: #fff; font: 500 .85rem/1.3 var(--mono); text-shadow: 0 1px 3px #000; }
+.live-bottom { display: flex; gap: 10px; padding: 12px 12px max(12px, env(safe-area-inset-bottom)); background: #000; }
+.live-bottom .btn { flex: 1 1 0; width: auto; margin: 0; min-height: 56px; }
+.live-bottom #liveShot.ready { box-shadow: 0 0 0 3px #7fd6b8; }
 .flow details.inline { margin-top: 8px; }
 .flow details.inline > p { margin-top: 6px; }
 .field { display: block; font-size: .9rem; font-weight: 600; margin: 8px 0; }
