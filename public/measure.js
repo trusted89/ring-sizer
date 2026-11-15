@@ -711,7 +711,7 @@ export function measure(cv, img, opts = {}) {
       blur: 0.4 * blurMm,                                    // edge softness
       fit: 2 * fit.rmsMm * (1 + (fit.gapDeg / 180) ** 2),    // scatter of the edge, worse if only part of the circle agrees
       scale: D * 2 * refined.lineRmsPx / (CONFIG.markerSideMm * geo.pxPerMm), // marker edge localisation
-      printScale: D * CONFIG.printScaleTolerance,            // the photo cannot show whether the sheet was resized in printing
+      printScale: D * CONFIG.printScaleTolerance / printScale, // ruler reading of the check line is good to about 0.5 mm
       perspective: D * 0.001 * pose.tiltDeg,                 // residual after rectification
       extrapolation: D * 0.0015 * (distMm / 40),             // scale carried from marker to ring
       ringHeight: D * CONFIG.assumedRingHeightMm / Math.max(pose.heightMm, 50), // upper rim is closer to the lens

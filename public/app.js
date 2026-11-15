@@ -48,7 +48,7 @@ let printScale = 1;
 function setLine(v, save) {
   const n = parseFloat(v);
   if (v === '' || !Number.isFinite(n)) { printScale = 1; lineMsg.textContent = ''; lineMsg.className = 'fine'; }
-  else if (n < 90 || n > 110) { printScale = 1; lineMsg.textContent = 'Enter a length between 90 and 110 mm. Outside that the sheet must be reprinted.'; lineMsg.className = 'fine fail'; }
+  else if (n < 70 || n > 130) { printScale = 1; lineMsg.textContent = 'Enter a length between 70 and 130 mm. Outside that the sheet must be reprinted.'; lineMsg.className = 'fine fail'; }
   else {
     printScale = n / 100;
     const pct = Math.abs(n - 100);
