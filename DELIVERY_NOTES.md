@@ -26,25 +26,25 @@ Measuring tool for the objects: a ruler with 1 mm marks, inner edge to inner edg
 
 | Photo | Kind | Expected | Actual | True inner Ø (mm) | Estimated Ø (mm) | Absolute error (mm) | Stated uncertainty | Error within uncertainty | Size | Time (ms, Node) | Outcome |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| real-01-sheet-only-no-ring.jpg | real-photo | retake: NO_RING | retake: NO_RING | - |  |  |  |  |  | 317 | pass |
-| real-02-keyring-25mm.jpg | real-object | measure | ok | 25.0 | 25.05 | 0.05 | ±0.54 | yes | ISO 79 | 253 | pass |
-| real-03-keyring-too-close-a.jpg | real-object | retake: TOO_CLOSE | retake: TOO_CLOSE | - |  |  |  |  |  | 174 | pass |
-| real-04-keyring-too-close-b.jpg | real-object | retake: TOO_CLOSE | retake: TOO_CLOSE | - |  |  |  |  |  | 153 | pass |
-| real-05-signet-ring-stone.jpg | real-ring | retake: NO_RING | retake: NO_RING | - |  |  |  |  |  | 316 | pass |
-| real-06-hoop-12mm.jpg | real-object | measure | ok | 12.5 | 13.05 | 0.55 | ±0.39 | NO | ISO 41 | 502 | pass |
-| real-07-hoop-off-centre.jpg | real-object | retake: NOT_ROUND | retake: NOT_ROUND | - |  |  |  |  |  | 270 | pass |
+| real-01-sheet-only-no-ring.jpg | real-photo | retake: NO_RING | retake: NO_RING | - |  |  |  |  |  | 315 | pass |
+| real-02-keyring-25mm.jpg | real-object | measure | ok | 25.0 | 25.05 | 0.05 | ±0.54 | yes | ISO 79 | 275 | pass |
+| real-03-keyring-too-close-a.jpg | real-object | retake: TOO_CLOSE | retake: TOO_CLOSE | - |  |  |  |  |  | 185 | pass |
+| real-04-keyring-too-close-b.jpg | real-object | retake: TOO_CLOSE | retake: TOO_CLOSE | - |  |  |  |  |  | 143 | pass |
+| real-05-signet-ring-stone.jpg | real-ring | retake: NO_RING | retake: NO_RING | - |  |  |  |  |  | 339 | pass |
+| real-06-hoop-12mm.jpg | real-object | measure | ok | 13.0 | 13.05 | 0.05 | ±0.39 | yes | ISO 41 | 523 | pass |
+| real-07-hoop-off-centre.jpg | real-object | retake: NOT_ROUND | retake: NOT_ROUND | - |  |  |  |  |  | 362 | pass |
 
 Objects:
 
 - **Key ring** (`real-02` to `real-04`): steel split ring, 25 mm by ruler. From about 25 cm it reads 25.05 mm. It is larger than any ring size in the table, so the page shows the diameter and says no size applies. From about 10 cm it is rejected as too close; before that rule existed those two photos read about 26.3 mm.
-- **Hoop** (`real-06`, `real-07`): black hinged hoop about 2.5 mm thick, read as "12 to 12.9 mm" on the ruler, recorded as 12.5. From about 16 cm it reads 13.05 mm: 0.55 mm above the recorded value and 0.15 mm above the top of the ruler range. **The stated ±0.39 mm does not cover that error.** Across five photos of this hoop the unrestricted readings ranged from 12.40 to 13.05 mm. After seeing the app's result I measured the hoop again and read 13 mm. That second reading was taken knowing the answer, so the first one stays as the ground truth and the error is reported against it. In `real-07` the hoop sits off-centre in a whole-page photo, its near side hides part of the opening, and the page asks for a retake.
+- **Hoop** (`real-06`, `real-07`): black hinged hoop about 2.5 mm thick. **Its ground truth was corrected after testing, and that weakens this row.** Before testing I read it as "12 to 12.9 mm" on the ruler. The app then read 13.05 mm from about 16 cm. I measured again and read 13 mm, and I believe the first reading was wrong: the hoop is small, thick and rounded, and hard to read against a ruler. The table uses 13.0 mm, which gives an error of 0.05 mm. Against the first reading (taken as 12.5 mm) the error is 0.55 mm, outside the stated ±0.39 mm. Across five photos of this hoop the unrestricted readings ranged from 12.40 to 13.05 mm. In `real-07` the hoop sits off-centre in a whole-page photo, its near side hides part of the opening, and the page asks for a retake.
 - **Signet ring with a stone** (`real-05`): 18 to 19 mm by ruler. It rests on its setting and the opening is in shadow, so no round opening showing paper is found and the page declines to measure. This is the only finger ring I had, and it is an unsupported kind.
 - `real-01` is the sheet alone on a red cloth.
 
 What these show and do not show:
 
 - Two measured objects give a reading (key ring, hoop). No plain finger ring was available, so there is no real-photo evidence for the main use case inside the sizing table except the hoop at its lowest size (ISO 41).
-- Ground truth was recorded before testing for `real-02` and `real-06`. Expected outcomes of the retake rows were written after their first run.
+- Only `real-02` (the key ring) has ground truth recorded before testing and left unchanged. The hoop's was corrected after the result was seen, as described above. Expected outcomes of the retake rows were written after their first run.
 - Detection thresholds were changed after seeing these photos (see "What failed"). They are tuned to this sample, not validated on an independent one.
 
 ### Synthetic renders (labelled synthetic, regression tests only)
@@ -78,7 +78,7 @@ Observed on the synthetic set:
   - Photos from about 10 cm read 1.3 mm high. They are now rejected as too close.
   - A dark hoop with a small opening and a soft shadow was not found: the shadow merged with the hoop and the opening was not enclosed. The search now retries counting only clearly dark pixels and bridging gaps up to about 2.5 mm.
 - Real-photo evidence is three objects in one lighting condition, one phone. Thresholds changed on the strength of these photos; that is tuning to a sample, not validation.
-- The uncertainty model understated the error on the thick hoop (0.55 mm error against ±0.39 mm stated). The ring-height term assumes a 4 mm band seen from straight above; a thick rounded tube seen from 16 cm and 16° off-axis behaves worse.
+- If the hoop's first ruler reading was right, the uncertainty model understated the error on it (0.55 mm error against ±0.39 mm stated). The ring-height term assumes a 4 mm band seen from straight above; a thick rounded tube seen from 16 cm and 16° off-axis behaves worse.
 - Tall rings and rings with stones are declined with "no ring found", which is correct but not specific. A message naming the cause would be better.
 - First approach, an ellipse fit to all edge points, read 0.35–0.5 mm low on rings with height and shadow and was replaced by the circle-consensus method.
 - A shadow as dark as the ring itself hides the edge on that side. The method then works from the visible part, and asks for a retake if less than half the circle is usable.
