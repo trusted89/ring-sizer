@@ -109,7 +109,7 @@ a { color: var(--accent); }
 .has-result .top { padding-top: 12px; }
 .has-result .brand { margin-bottom: 0; }
 .res-bar { display: flex; gap: 8px; margin-bottom: 12px; }
-.res-bar .btn { flex: 1 1 0; width: auto; min-height: 44px; margin: 0; padding: 0 10px; font-size: .9rem; font-weight: 600; text-align: center; }
+.res-bar .btn { flex: 1 1 0; width: auto; min-height: 44px; margin: 0; padding: 0 6px; font-size: .88rem; font-weight: 600; text-align: center; white-space: nowrap; }
 .checks-d { border-top: 1px solid var(--line); padding: 8px 0; margin-bottom: 6px; }
 .checks-d summary { font-size: .92rem; }
 .checks-d .checks { margin: 6px 0 0; }
