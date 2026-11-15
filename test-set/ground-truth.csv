@@ -1,4 +1,4 @@
-file,kind,expected,expected_reason,true_inner_diameter_mm,how_truth_was_obtained,notes
+file,kind,expected,expected_reason,true_inner_diameter_mm,how_truth_was_obtained,notes,sheet_line_mm
 synthetic/synthetic-01-flat-overhead.jpg,synthetic,measure,,17.30,render parameter (scripts/synth.py),flat printed-style annulus; overhead
 synthetic/synthetic-02-ring-h3-tilt4.jpg,synthetic,measure,,18.90,render parameter (scripts/synth.py),ring 3 mm tall; 4 deg tilt; sheet rotated 20 deg
 synthetic/synthetic-03-wide-band-h6-offaxis.jpg,synthetic,measure,,16.50,render parameter (scripts/synth.py),ring 6 mm tall; camera centred on marker not ring; 6 deg tilt

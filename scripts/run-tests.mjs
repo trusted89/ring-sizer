@@ -36,8 +36,10 @@ for (const row of truth) {
   if (!fs.existsSync(file)) { lines.push(`| ${row.file} | ${row.kind} | ${row.expected} | FILE MISSING | | | | | |`); failures++; continue; }
   const { data, info } = await sharp(file).rotate().resize(MAX_SIDE, MAX_SIDE, { fit: 'inside', withoutEnlargement: true }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const img = { data: new Uint8ClampedArray(data.buffer, data.byteOffset, data.length), width: info.width, height: info.height };
-  measure(cv, img); // warm-up so timing excludes one-off WASM/JIT cost
-  let res = measure(cv, img);
+  // Optional: ruler reading of the check line on the sheet used for this photo (resized print).
+  const opts = Number(row.sheet_line_mm) > 0 ? { printScale: Number(row.sheet_line_mm) / 100 } : {};
+  measure(cv, img, opts); // warm-up so timing excludes one-off WASM/JIT cost
+  let res = measure(cv, img, opts);
   const truths = row.true_inner_diameter_mm.split('|').map(Number);
   let actual = res.status, est = '', err = '', unc = '', within = '', size = '';
   const report = (r, t) => {
@@ -49,7 +51,7 @@ for (const row of truth) {
   else if (res.status === 'choose') {
     // exercise the confirmation path: select each candidate in turn
     const parts = res.overlay.candidates.map((_, i) => {
-      const r = measure(cv, img, { select: i });
+      const r = measure(cv, img, { ...opts, select: i });
       if (r.status !== 'ok') return { est: r.status, err: '-', unc: '', within: '', size: '' };
       const t = truths.reduce((a, b) => Math.abs(b - r.diameterMm) < Math.abs(a - r.diameterMm) ? b : a);
       return report(r, t);
