@@ -58,6 +58,15 @@ try {
   assert.deepEqual(await phone.locator('#screen-circle').boundingBox(), circle);
   await phone.locator('#ring-stage').click();
   assert.equal(await phone.locator('#ring-dialog').isVisible(), true);
+  const shielded = await phone.locator('#ring-stage').evaluate(stage => {
+    return ['touchstart', 'touchmove', 'touchend', 'click', 'dblclick', 'contextmenu', 'dragstart'].every(type => {
+      const e = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperty(e, 'touches', { value: [1, 2] });
+      stage.dispatchEvent(e);
+      return e.defaultPrevented;
+    });
+  });
+  assert.equal(shielded, true);
   await phone.getByRole('button', { name: 'The circle fits' }).click();
   assert.match(await phone.locator('#screen-reading').textContent(), /20\.0 mm · ISO 63/);
   await phone.getByRole('button', { name: 'Make ring circle larger' }).click();
@@ -66,6 +75,10 @@ try {
   assert.ok(Math.abs((adjusted.x + adjusted.width / 2) - (circle.x + circle.width / 2)) < .02);
   assert.ok(Math.abs((adjusted.y + adjusted.height / 2) - (circle.y + circle.height / 2)) < .02);
   await phone.getByRole('button', { name: 'The circle fits' }).click();
+  await phone.reload();
+  await phone.locator('#ring-dialog').waitFor({ state: 'visible' });
+  assert.equal(await phone.locator('#screen-diameter').inputValue(), '20.1');
+  assert.match(await phone.locator('#screen-reading').textContent(), /20\.1 mm/);
   await phone.getByRole('button', { name: 'Done' }).click();
   await phone.locator('#ring-dialog').waitFor({ state: 'hidden' });
   assert.match(await phone.locator('#screen-last-reading').textContent(), /20\.1 mm/);

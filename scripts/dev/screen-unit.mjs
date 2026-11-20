@@ -18,15 +18,17 @@ class Element extends EventTarget {
   showModal() { this.open = true; }
   close() { this.open = false; this.dispatchEvent(new Event('close')); }
 }
-const ids = ['screen', 'cal-dialog', 'ring-dialog', 'ring-stage', 'ring-space-note', 'ring-open', 'ring-exit', 'screen-last-reading', 'cal-stage', 'cal-line', 'cal-card-shape', 'cal-open', 'cal-cancel', 'cal-guide-note',
+const ids = ['screen', 'cal-dialog', 'ring-dialog', 'ring-stage', 'ring-space-note', 'ring-open', 'ring-exit', 'screen-last-reading', 'result', 'live', 'cal-stage', 'cal-line', 'cal-card-shape', 'cal-open', 'cal-cancel', 'cal-guide-note',
   'screen-diameter', 'ring-fit-title', 'screen-circle', 'screen-fit', 'cal-confirm', 'ring-confirm', 'cal-status', 'screen-reading'];
 const storage = new Map();
+const tabStorage = new Map();
 globalThis.requestAnimationFrame = fn => fn();
-const make = async (token, scale = 1, dpr = 2, blocked = false) => {
+const make = async (token, scale = 1, dpr = 2, blocked = false, hash = '') => {
   const dom = Object.fromEntries(ids.map(id => [id, new Element()]));
   const click = id => dom[id].dispatchEvent(new Event('click'));
   const input = (id, value) => { dom[id].value = String(value); dom[id].dispatchEvent(new Event('input')); };
-  dom['screen-fit'].hidden = true;
+  dom['screen-fit'].hidden = dom.result.hidden = dom.live.hidden = true;
+  dom['screen-diameter'].min = 12;
   const classes = new Set();
   const refs = ['53.98', '85.6'].map(value => Object.assign(new Element(), { value }));
   const minus = Object.assign(new Element(), { dataset: { adjust: '-1' } });
@@ -37,6 +39,9 @@ const make = async (token, scale = 1, dpr = 2, blocked = false) => {
   };
   const visualViewport = Object.assign(new EventTarget(), { scale });
   globalThis.window = Object.assign(new EventTarget(), {
+    location: { pathname: '/', search: '', hash },
+    sessionStorage: { getItem: k => { if (blocked) throw Error(); return tabStorage.get(k); },
+      setItem: (k, v) => { if (blocked) throw Error(); tabStorage.set(k, v); }, removeItem: k => tabStorage.delete(k) },
     innerWidth: 390, devicePixelRatio: dpr, visualViewport, screen: { width: 390, height: 844 },
     localStorage: { getItem: k => { if (blocked) throw Error(); return storage.get(k); },
       setItem: (k, v) => { if (blocked) throw Error(); storage.set(k, v); } },
@@ -45,7 +50,7 @@ const make = async (token, scale = 1, dpr = 2, blocked = false) => {
   return { dom, click, input, visualViewport, classes, minus, refs, ...mod };
 };
 const t = await make('initial');
-const { dom, click, input, visualViewport, classes, minus, refs, CARD_WIDTH_MM, CARD_SHORT_MM, START_LINE_PX, circlePixels, CALIBRATION_KEY } = t;
+const { dom, click, input, visualViewport, classes, minus, refs, CARD_WIDTH_MM, CARD_SHORT_MM, START_LINE_PX, circlePixels, CALIBRATION_KEY, FIT_SESSION_KEY } = t;
 assert.equal(CARD_WIDTH_MM, 85.60);
 assert.equal(START_LINE_PX, 324);
 assert.equal(circlePixels(20, 428), 100);
@@ -89,7 +94,15 @@ dom['ring-stage'].dispatchEvent(ringTouch);
 assert.equal(ringTouch.defaultPrevented, true);
 const pinch = Object.assign(new Event('touchmove', { cancelable: true }), { touches: [1, 2] });
 dom['ring-stage'].dispatchEvent(pinch);
-assert.equal(pinch.defaultPrevented, false);
+assert.equal(pinch.defaultPrevented, true);
+for (const type of ['touchstart', 'touchend', 'touchcancel', 'click', 'dblclick', 'contextmenu', 'dragstart', 'selectstart']) {
+  const e = new Event(type, { cancelable: true });
+  dom['ring-stage'].dispatchEvent(e);
+  assert.equal(e.defaultPrevented, true, type);
+}
+const zoomWheel = Object.assign(new Event('wheel', { cancelable: true }), { ctrlKey: true });
+dom['ring-stage'].dispatchEvent(zoomWheel);
+assert.equal(zoomWheel.defaultPrevented, false);
 const ringWheel = new Event('wheel', { cancelable: true });
 dom['ring-stage'].dispatchEvent(ringWheel);
 assert.equal(ringWheel.defaultPrevented, true);
@@ -108,8 +121,10 @@ assert.equal(dom['ring-confirm'].disabled, false);
 click('ring-confirm');
 assert.match(dom['screen-reading'].textContent, /20\.0 mm · ISO 63/);
 assert.equal(dom['ring-exit'].textContent, 'Done');
+assert.equal(JSON.parse(tabStorage.get(FIT_SESSION_KEY)).confirmed, true);
 click('ring-exit');
 assert.ok(!classes.has('calibration-open'));
+assert.equal(tabStorage.has(FIT_SESSION_KEY), false);
 assert.equal(dom['screen-last-reading'].textContent, dom['screen-reading'].textContent);
 click('cal-open');
 assert.ok(!dom['cal-card-shape'].classList.has('cal-cue-intro'));
@@ -126,11 +141,15 @@ assert.match(dom['cal-status'].textContent, /screen or zoom changed/);
 const confirmed = JSON.parse(storage.get(CALIBRATION_KEY)).at(-1);
 const restored = await make('restored');
 assert.equal(restored.dom['screen-fit'].hidden, false);
-assert.equal(restored.dom['ring-dialog'].open, false);
-assert.equal(restored.dom['ring-fit-title'].focused, undefined);
+assert.equal(restored.dom['ring-dialog'].open, true);
+assert.equal(restored.dom['screen-diameter'].value, '20');
+assert.match(restored.dom['screen-reading'].textContent, /20\.0 mm/);
+restored.click('ring-exit');
+assert.equal(tabStorage.has(FIT_SESSION_KEY), false);
+assert.equal(restored.dom['ring-fit-title'].focused, true);
 assert.equal(restored.dom['ring-fit-title'].scrolled, undefined);
 assert.match(restored.dom['cal-status'].textContent, /Saved calibration restored.*switching displays/);
-assert.equal(restored.dom['screen-circle'].style.width, circlePixels(17.5, 333) + 'px');
+assert.equal(restored.dom['screen-circle'].style.width, circlePixels(20, 333) + 'px');
 window.innerWidth = 500;
 window.dispatchEvent(new Event('resize'));
 assert.equal(restored.dom['screen-fit'].hidden, false, 'window width alone does not change physical scale');
@@ -155,6 +174,16 @@ changed.click('cal-confirm');
 assert.equal(changed.dom['screen-fit'].hidden, true);
 changed.click('cal-cancel');
 assert.ok(!changed.classes.has('calibration-open'));
+const active = await make('active-before-route-change');
+active.click('ring-open');
+const paused = await make('unrelated', 1, 2, false, '#start');
+assert.equal(paused.dom['ring-dialog'].open, false);
+const returned = await make('back-to-fitting', 1, 2, false, '#screen');
+assert.equal(returned.dom['ring-dialog'].open, true);
+returned.dom['ring-dialog'].dispatchEvent(new Event('cancel'));
+returned.dom['ring-dialog'].close();
+const exited = await make('after-escape', 1, 2);
+assert.equal(exited.dom['ring-dialog'].open, false);
 storage.set(CALIBRATION_KEY, JSON.stringify({ ...confirmed, referenceMm: 60 }));
 const badReference = await make('invalid-reference');
 assert.equal(badReference.dom['screen-fit'].hidden, true);

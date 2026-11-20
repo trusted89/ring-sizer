@@ -241,17 +241,19 @@ html.calibration-open { overflow: hidden; overscroll-behavior: none; }
 }
 @keyframes cal-place-cue { from { transform: translateY(7px); opacity: .3; } to { transform: translateY(0); opacity: 1; } }
 
-.ring-dialog { scrollbar-gutter: stable; }
+.ring-dialog { scrollbar-gutter: stable; overscroll-behavior: none; }
 .ring-dialog .cal-heading h2 { font-size: clamp(1.15rem, 5vw, 1.5rem); }
 .ring-dialog .cal-heading .btn { flex-shrink: 0; }
 .ring-dialog .screen-controls .btn { touch-action: manipulation; }
 .locked-ring-stage {
-  min-height: max(180px, var(--ring-maximum-px, 0px)); margin-block: 14px 10px; overflow: hidden;
-  touch-action: pinch-zoom; user-select: none; -webkit-user-select: none;
+  min-height: max(224px, var(--ring-maximum-px, 0px)); margin-block: 18px 12px; overflow: hidden;
+  touch-action: none; user-select: none; -webkit-user-select: none;
 }
 .locked-ring-stage #screen-circle { pointer-events: none; }
 .ring-dialog .screen-reading:empty, #screen-last-reading:empty { display: none; }
 .ring-dialog .screen-reading { margin-block: 8px; }
 @media (max-height: 500px) {
-  .locked-ring-stage { min-height: max(115px, var(--ring-maximum-px, 0px)); margin-block: 8px 6px; }
+  .locked-ring-stage { min-height: max(138px, var(--ring-maximum-px, 0px)); margin-block: 8px 6px; }
 }
+
+.locked-ring-stage { -webkit-touch-callout: none; }
