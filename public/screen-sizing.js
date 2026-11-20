@@ -15,6 +15,7 @@ function setupScreen() {
   const dialog = get('cal-dialog');
   const stage = get('cal-stage');
   const line = get('cal-line');
+  const card = get('cal-card-shape');
   const guide = get('cal-guide-note');
   const open = get('cal-open');
   const confirm = get('cal-confirm');
@@ -44,6 +45,7 @@ function setupScreen() {
   let lastGeometry = geometry();
   let lastStageWidth = null;
   let confirmedOnClose = null;
+  let introShown = false;
   const savedCalibrations = new Map();
   const validSaved = (item) => item && typeof item.key === 'string' && validReference(item.referenceMm)
     && Number.isFinite(item.linePx) && item.linePx >= MIN_LINE && item.linePx <= 1000;
@@ -79,7 +81,10 @@ function setupScreen() {
       const max = maxWidth();
       confirm.disabled = max < MIN_LINE;
       width = max < MIN_LINE ? 0 : Math.max(MIN_LINE, Math.min(width, max));
-      line.style.width = width + 'px';
+      line.style.width = card.style.width = width + 'px';
+      const otherEdgeMm = referenceMm === CARD_SHORT_MM ? CARD_WIDTH_MM : CARD_SHORT_MM;
+      card.style.height = width * otherEdgeMm / referenceMm + 'px';
+      card.hidden = width === 0;
       if (max < MIN_LINE) guide.textContent = 'This view is too narrow. Try a larger screen.';
     }
     if (calibrated) {
@@ -129,6 +134,10 @@ function setupScreen() {
     guide.textContent = DEFAULT_GUIDE;
     document.documentElement.classList.add('calibration-open');
     dialog.showModal();
+    if (!introShown) {
+      introShown = true;
+      card.classList.add('cal-cue-intro');
+    }
     lastGeometry = geometry();
     lastStageWidth = stage.clientWidth;
     draw();
@@ -143,6 +152,7 @@ function setupScreen() {
   stage.addEventListener('wheel', (event) => { if (!event.ctrlKey) event.preventDefault(); }, { passive: false });
   stage.addEventListener('touchmove', (event) => event.preventDefault(), { passive: false });
   dialog.addEventListener('close', () => {
+    card.classList.remove('cal-cue-intro');
     lastStageWidth = null;
     document.documentElement.classList.remove('calibration-open');
     const explicitMatch = confirmedOnClose;

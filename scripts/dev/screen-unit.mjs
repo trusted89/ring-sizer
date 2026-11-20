@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 class Element extends EventTarget {
   style = {};
+  classList = new Set();
   dataset = {};
   value = '';
   textContent = '';
@@ -9,13 +10,14 @@ class Element extends EventTarget {
   clientWidth = 360;
   open = false;
   disabled = false;
+  constructor() { super(); this.classList.remove = this.classList.delete.bind(this.classList); }
   getBoundingClientRect() { return { width: parseFloat(this.style.width) }; }
   focus() { this.focused = true; }
   scrollIntoView() { this.scrolled = true; }
   showModal() { this.open = true; }
   close() { this.open = false; this.dispatchEvent(new Event('close')); }
 }
-const ids = ['screen', 'cal-dialog', 'cal-stage', 'cal-line', 'cal-open', 'cal-cancel', 'cal-guide-note',
+const ids = ['screen', 'cal-dialog', 'cal-stage', 'cal-line', 'cal-card-shape', 'cal-open', 'cal-cancel', 'cal-guide-note',
   'screen-diameter', 'ring-fit-title', 'screen-circle', 'screen-fit', 'cal-confirm', 'ring-confirm', 'cal-status', 'screen-reading'];
 const storage = new Map();
 globalThis.requestAnimationFrame = fn => fn();
@@ -59,9 +61,14 @@ const touch = new Event('touchmove', { cancelable: true });
 dom['cal-stage'].dispatchEvent(touch);
 assert.equal(touch.defaultPrevented, true);
 assert.equal(dom['cal-line'].style.width, '204px');
+assert.equal(dom['cal-card-shape'].style.width, '204px');
+assert.ok(parseFloat(dom['cal-card-shape'].style.height) > 204);
+assert.ok(dom['cal-card-shape'].classList.has('cal-cue-intro'));
 assert.equal(refs[0].checked, true);
 refs[1].checked = true; refs[1].dispatchEvent(new Event('change'));
 assert.equal(dom['cal-line'].style.width, '324px');
+assert.equal(dom['cal-card-shape'].style.width, '324px');
+assert.ok(parseFloat(dom['cal-card-shape'].style.height) < 324);
 minus.dispatchEvent(new Event('click'));
 assert.equal(dom['cal-line'].style.width, '323px');
 const right = Object.assign(new Event('keydown', { cancelable: true }), { key: 'ArrowRight', shiftKey: true });
@@ -70,6 +77,10 @@ assert.equal(right.defaultPrevented, true);
 assert.equal(dom['cal-line'].style.width, '333px');
 click('cal-confirm');
 assert.ok(!classes.has('calibration-open'));
+assert.ok(!dom['cal-card-shape'].classList.has('cal-cue-intro'));
+click('cal-open');
+assert.ok(!dom['cal-card-shape'].classList.has('cal-cue-intro'));
+click('cal-cancel');
 assert.equal(JSON.parse(storage.get(CALIBRATION_KEY)).at(-1).referenceMm, CARD_WIDTH_MM);
 assert.equal(dom['screen-fit'].hidden, false);
 assert.equal(dom['ring-fit-title'].focused, true);

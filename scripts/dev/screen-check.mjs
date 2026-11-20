@@ -30,9 +30,13 @@ try {
   await phone.goto(url);
   assert.equal(await phone.locator('#screen-fit').isVisible(), false);
   await phone.getByRole('button', { name: 'Calibrate with a card' }).click();
-  assert.equal(await phone.getByRole('radio', { name: 'Short edge (phone)' }).isChecked(), true);
+  assert.equal(await phone.getByRole('radio', { name: 'Upright card (short edge)' }).isChecked(), true);
   const line = await phone.locator('#cal-line').boundingBox();
   assert.equal(line.width, 204);
+  const card = await phone.locator('#cal-card-shape').boundingBox();
+  assert.equal(card.x, line.x);
+  assert.equal(card.width, line.width);
+  assert.ok(card.height > card.width);
   await phone.getByRole('button', { name: 'Make the guide longer (small step)' }).click();
   const nudged = await phone.locator('#cal-line').boundingBox();
   assert.equal(nudged.x, line.x);
@@ -63,15 +67,19 @@ try {
   const landscape = await browser.newPage({ viewport: { width: 568, height: 300 } });
   await landscape.goto(url);
   await landscape.getByRole('button', { name: 'Calibrate with a card' }).click();
-  await landscape.getByRole('radio', { name: 'Short edge (phone)' }).check();
+  await landscape.getByRole('radio', { name: 'Upright card (short edge)' }).check();
   await landscape.getByRole('button', { name: 'Make the guide shorter (large step)' }).click();
   await landscape.getByRole('button', { name: 'Both card edges line up' }).click();
   assert.equal(await landscape.locator('#screen-fit').isVisible(), true);
   const desktop = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   await desktop.goto(url);
   await desktop.getByRole('button', { name: 'Calibrate with a card' }).click();
-  assert.equal(await desktop.getByRole('radio', { name: 'Long edge' }).isChecked(), true);
+  assert.equal(await desktop.getByRole('radio', { name: 'Sideways card (long edge)' }).isChecked(), true);
   assert.equal((await desktop.locator('#cal-line').boundingBox()).width, 324);
+  const landscapeCard = await desktop.locator('#cal-card-shape').boundingBox();
+  assert.ok(landscapeCard.width > landscapeCard.height);
+  await desktop.emulateMedia({ reducedMotion: 'reduce' });
+  assert.equal(await desktop.locator('.cal-card-cue').evaluate(el => getComputedStyle(el).animationName), 'none');
   assert.deepEqual(runtimeErrors, []);
 
   const photo = await browser.newPage({ viewport: { width: 390, height: 844 } });

@@ -29,7 +29,7 @@
       <h2 id="screen-title">Measure on screen</h2>
       <p>Use a standard bank card or ID and a ring that fits. Nothing gets scanned or uploaded.</p>
       <h3>1. Calibrate this screen</h3>
-      <p>We start with a guide for a standard card. Since physical screen scale varies, check it once against your card.</p>
+      <p>On a phone, keep the phone upright and turn the card upright too. Match your card once to set the screen scale.</p>
       <button id="cal-open" class="btn primary" type="button">Calibrate with a card</button>
       <p id="cal-status" class="fine" role="status"></p>
       <div id="screen-fit" hidden>
@@ -181,8 +181,8 @@
       <p id="cal-help">Keep the card flat just below the marks so both stay visible. Line up its straight left edge with the fixed mark, then move the right mark to its straight right edge. Ignore the rounded corners.</p>
       <fieldset class="cal-reference">
         <legend>Which card edge runs left to right?</legend>
-        <label><input type="radio" name="cal-reference" value="53.98"> Short edge (phone)</label>
-        <label><input type="radio" name="cal-reference" value="85.6"> Long edge</label>
+        <label><input type="radio" name="cal-reference" value="53.98"> Upright card (short edge)</label>
+        <label><input type="radio" name="cal-reference" value="85.6"> Sideways card (long edge)</label>
       </fieldset>
       <p class="cal-note" id="cal-guide-note" role="status">Only the right mark moves. Use the arrow keys for fine adjustment.</p>
       <div class="cal-steps" aria-label="Adjust the right mark">
@@ -192,8 +192,17 @@
         <button class="btn ghost small" type="button" data-adjust="10" aria-label="Make the guide longer (large step)">++</button>
       </div>
       <button id="cal-confirm" class="btn primary" type="button">Both card edges line up</button>
-      <p class="fine">Turn the card so the selected edge is horizontal. If it does not fit, use a larger screen. Don’t use a photo of a card.</p>
-      <div class="cal-area" id="cal-stage" aria-hidden="true"><div id="cal-line"></div></div>
+      <p class="fine">On a phone, keep it upright and turn the card, not the phone. Use a physical card, not a photo.</p>
+      <div class="cal-area" id="cal-stage" aria-hidden="true">
+        <div id="cal-line"></div>
+        <div class="cal-card-shape" id="cal-card-shape">
+          <span class="cal-card-chip"></span>
+          <span class="cal-card-stripe"></span>
+          <svg class="cal-card-cue" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+            <path d="M12 20V4m-5 5 5-5 5 5"/>
+          </svg>
+        </div>
+      </div>
     </div>
   </dialog>
 

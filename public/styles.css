@@ -218,3 +218,25 @@ html.calibration-open { overflow: hidden; overscroll-behavior: none; }
 #cal-line { height: 14px; }
 
 #ring-fit-title { scroll-margin-top: 1rem; }
+
+/* The outline sits immediately below the guide; its drawn dimensions never
+   drive calibration. Only the little arrow animates, not the marks or card. */
+.cal-area { flex-direction: column; align-items: flex-start; padding-bottom: 8px; }
+.cal-card-shape {
+  position: relative; flex: none; pointer-events: none; border: 2px dashed #6a887c;
+  border-radius: 11px; background: #edf5ef; color: #316856; opacity: .8;
+}
+.cal-card-chip {
+  position: absolute; inset: 12% auto auto 9%; width: 26px; height: 20px;
+  border: 1px solid currentColor; border-radius: 4px;
+  background: linear-gradient(90deg, transparent 47%, currentColor 48%, currentColor 52%, transparent 53%);
+}
+.cal-card-stripe {
+  position: absolute; inset: auto 9% 12%; height: 8px; width: 32%;
+  border-radius: 4px; background: #adc6ba;
+}
+.cal-card-cue { position: absolute; top: 13px; left: 50%; margin-left: -12px; width: 24px; height: 24px; }
+@media (prefers-reduced-motion: no-preference) {
+  .cal-cue-intro .cal-card-cue { animation: cal-place-cue .65s ease-out 1; }
+}
+@keyframes cal-place-cue { from { transform: translateY(7px); opacity: .3; } to { transform: translateY(0); opacity: 1; } }
