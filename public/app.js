@@ -355,9 +355,7 @@ async function liveShot() {
 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
   liveBtn.hidden = false;
   liveBtn.addEventListener('click', () => startLive());
-  $('#card-camera').hidden = false;
-  liveCardBtn.addEventListener('click', () => cardConfirm.showModal());
-  $('#card-start').addEventListener('click', () => { cardConfirm.close(); startLive('card'); });
+  // Hold the public card-camera entry until real-phone validation. Printed-marker live check stays available.
   $('#liveCancel').addEventListener('click', stopLive);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !liveEl.hidden) stopLive(); });
   window.addEventListener('pagehide', stopLive);
