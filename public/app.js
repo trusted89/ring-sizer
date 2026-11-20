@@ -1,5 +1,6 @@
 // Interface for the ring measurement prototype. All measurement logic lives in measure.js.
-import { measure, assessFrame, CONFIG } from './measure.js';
+import { measure, assessFrame, CONFIG } from './measure.js?v=two-modes-v1';
+import { CARD_HELP, measureCardRing } from './card-camera.js';
 import { sizeFor, tableRows, TABLE } from './sizing.js';
 
 const MAX_SIDE = 4096; // photos larger than this are downscaled before measuring
@@ -125,7 +126,7 @@ async function decode(blob) {
 
 async function handleBlob(blob, name, isSample = false, fromLive = null, job = beginPhoto()) {
   if (job !== photoEpoch) return;
-  if (!isSample && !printScaleValid) { printScaleError(); return; }
+  if (!isSample && fromLive?.reference !== 'card' && !printScaleValid) { printScaleError(); return; }
   const scale = isSample ? 1 : printScale;
   showBusy('Measuring…');
   try {
@@ -143,7 +144,7 @@ async function run(select, job, measurement) {
   if (job !== photoEpoch || measurement !== current) return;
   const t0 = performance.now();
   // Sample photos are rendered at nominal size, so the sheet correction does not apply to them.
-  const res = measure(cv, current.imageData, {
+  const res = current.fromLive?.reference === 'card' ? measureCardRing(cv, current.imageData, { confirmedStandardCard: true }) : measure(cv, current.imageData, {
     select, printScale: current.scale,
     sensorTiltDeg: current.fromLive && current.fromLive.sensorTiltDeg !== null ? current.fromLive.sensorTiltDeg : undefined,
   });
@@ -160,6 +161,8 @@ async function run(select, job, measurement) {
 // many pixels the ring will get, not by distance alone.
 const LIVE = { minCm: 16, maxCm: 38, minPhotoPxPerMm: 6.5, maxTiltDeg: 9, maxRingOff: 0.12, everyMs: 220, maxSide: 960, greenAfter: 2, shootAfter: 5 };
 const liveEl = $('#live'), liveVideo = $('#liveVideo'), liveMsg = $('#liveMsg'), liveInfo = $('#liveInfo');
+const liveCardBtn = $('#liveCardBtn'), cardConfirm = $('#card-confirm'), cardEdges = $('#liveCardEdges'), cardQuad = $('#liveCardQuad'), cardRing = $('#liveCardRing');
+let liveReference = 'printed', previousCard = null;
 const liveBtn = $('#liveBtn'), liveShotBtn = $('#liveShot'), liveLevel = $('#liveLevel'), liveDot = $('#liveDot');
 let liveStream = null, liveTimer = null, liveGood = 0, liveTaking = false, cameraEpoch = 0;
 const stopTracks = (stream) => stream?.getTracks().forEach((track) => track.stop());
@@ -208,7 +211,30 @@ async function liveTick(session) {
       liveCanvas.width = Math.round(vw * k); liveCanvas.height = Math.round(vh * k);
       const ctx = liveCanvas.getContext('2d', { willReadFrequently: true });
       ctx.drawImage(liveVideo, 0, 0, liveCanvas.width, liveCanvas.height);
-      const advice = liveAdvice(assessFrame(cv, ctx.getImageData(0, 0, liveCanvas.width, liveCanvas.height), { printScale }), k);
+      const image = ctx.getImageData(0, 0, liveCanvas.width, liveCanvas.height);
+      let advice;
+      if (liveReference === 'card') {
+        const a = measureCardRing(cv, image, { confirmedStandardCard: true, preview: true });
+        const q = a.overlay.card ?? [], r = a.overlay.inner ?? [];
+        cardEdges.setAttribute('viewBox', `0 0 ${image.width} ${image.height}`);
+        cardQuad.setAttribute('points', q.map(p => p.join(',')).join(' '));
+        cardRing.setAttribute('points', r.map(p => p.join(',')).join(' '));
+        if (a.status !== 'preview') {
+          previousCard = null;
+          advice = { state: 'bad', text: CARD_HELP[a.reasons[0].code], info: 'Card and ring must both be fully visible' };
+        } else {
+          const prev = previousCard;
+          previousCard = { q, ringEdge: r, size: a.guideDiameterMm, scale: a.checks.pxPerMm };
+          const still = !!prev && Math.abs(a.guideDiameterMm - prev.size) < .40 &&
+            Math.abs(a.checks.pxPerMm / prev.scale - 1) < .025 &&
+            q.every((p, i) => Math.hypot(p[0] - prev.q[i][0], p[1] - prev.q[i][1]) < image.width * .018) &&
+            r.every((p, i) => Math.hypot(p[0] - prev.ringEdge[i][0], p[1] - prev.ringEdge[i][1]) < image.width * .012);
+          advice = { state: still ? 'good' : 'bad', text: 'Both found. Hold the phone still…', info: 'Measuring only after the capture passes the full checks' };
+        }
+        liveShotBtn.disabled = advice.state !== 'good';
+      } else {
+        advice = liveAdvice(assessFrame(cv, image, { printScale }), k);
+      }
       // a few good frames in a row before turning green, so it does not flicker
       liveGood = advice.state === 'good' ? liveGood + 1 : 0;
       const good = liveGood >= LIVE.greenAfter;
@@ -220,32 +246,36 @@ async function liveTick(session) {
       liveShotBtn.classList.toggle('ready', good);
       if (liveGood >= LIVE.shootAfter) { liveShot(); return; } // position held for about a second: take it
     }
-  } catch (e) { if (session !== cameraEpoch) return; liveMsg.textContent = 'Live check stopped working. Cancel and use "Upload a photo".'; liveMsg.className = 'live-msg'; return; }
-  if (session === cameraEpoch && liveStream && !liveTaking) liveTimer = setTimeout(() => liveTick(session), LIVE.everyMs);
+  } catch (e) { if (session !== cameraEpoch) return; liveMsg.textContent = liveReference === 'card' ? 'Card camera could not assess the frame. Cancel and try again.' : 'Live check stopped working. Cancel and use "Upload a photo".'; liveMsg.className = 'live-msg'; return; }
+  if (session === cameraEpoch && liveStream && !liveTaking) liveTimer = setTimeout(() => liveTick(session), liveReference === 'card' ? 400 : LIVE.everyMs);
 }
 
-async function startLive() {
-  if (!printScaleValid) { printScaleError(); return; }
+async function startLive(reference = 'printed') {
+  if (reference !== 'card' && !printScaleValid) { printScaleError(); return; }
   stopLive();
   photoEpoch++; // a new camera session supersedes pending photo work
   const session = cameraEpoch;
+  liveReference = reference; previousCard = null;
+  cardEdges.toggleAttribute('hidden', reference !== 'card');
+  cardQuad.setAttribute('points', ''); cardRing.setAttribute('points', '');
+  liveEl.classList.toggle('card-mode', reference === 'card');
   liveShotBtn.disabled = true;
   liveEl.hidden = false; liveEl.classList.remove('good'); liveGood = 0; liveTaking = false; orient = null; liveLevel.hidden = true;
   liveMsg.textContent = 'Starting the camera…'; liveMsg.className = 'live-msg wait'; liveInfo.textContent = '';
   // Level sensor: some browsers ask for permission, and only from a tap like this one.
   try {
-    if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') await DeviceOrientationEvent.requestPermission();
+    if (reference !== 'card' && window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') await DeviceOrientationEvent.requestPermission();
   } catch { /* no sensor: the angle estimated from the marker is used instead */ }
   if (session !== cameraEpoch) return;
-  window.addEventListener('deviceorientation', onOrient);
+  if (reference !== 'card') window.addEventListener('deviceorientation', onOrient);
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } } });
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: reference === 'card' ? { exact: 'environment' } : { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } } });
     if (session !== cameraEpoch) { stopTracks(stream); return; }
     liveStream = stream;
     liveVideo.srcObject = stream;
     await liveVideo.play();
     if (session !== cameraEpoch) return;
-    liveShotBtn.disabled = false;
+    liveShotBtn.disabled = reference === 'card';
     // keep refocusing while the phone moves, where the camera allows it
     try { await stream.getVideoTracks()[0].applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch { /* fixed or automatic focus */ }
     if (session === cameraEpoch) liveTick(session);
@@ -255,7 +285,7 @@ async function startLive() {
     stopTracks(liveStream);
     liveStream = null;
     liveVideo.srcObject = null;
-    liveMsg.textContent = 'The camera could not be opened. Cancel and use "Upload a photo".'; liveMsg.className = 'live-msg';
+    liveMsg.textContent = reference === 'card' ? 'A rear camera could not be opened. Check camera permission or use Measure on screen.' : 'The camera could not be opened. Cancel and use "Upload a photo".'; liveMsg.className = 'live-msg';
   }
 }
 
@@ -265,7 +295,8 @@ function stopLive() {
   clearTimeout(liveTimer);
   window.removeEventListener('deviceorientation', onOrient);
   stopTracks(liveStream);
-  liveStream = null; liveVideo.srcObject = null; liveEl.hidden = true; liveEl.classList.remove('good');
+  liveStream = null; liveVideo.srcObject = null; liveEl.hidden = true; liveEl.classList.remove('good', 'card-mode');
+  previousCard = null; cardEdges.toggleAttribute('hidden', true);
 }
 
 async function liveShot() {
@@ -274,7 +305,7 @@ async function liveShot() {
   liveTaking = true;
   liveShotBtn.disabled = true;
   clearTimeout(liveTimer);
-  const levelAtShot = sensorTilt();
+  const levelAtShot = sensorTilt(), reference = liveReference;
   liveMsg.textContent = 'Taking the photo…'; liveMsg.className = `live-msg ${liveEl.classList.contains('good') ? 'good' : 'wait'}`;
   let blob = null;
   // Full-resolution still where the browser offers it; otherwise the preview frame at its own size.
@@ -300,12 +331,15 @@ async function liveShot() {
   }
   if (session !== cameraEpoch) return;
   stopLive();
-  if (blob) handleBlob(blob, 'Photo from live check', false, { sensorTiltDeg: levelAtShot }); else showError('The photo could not be taken. Use "Upload a photo".');
+  if (blob) handleBlob(blob, 'Photo from live check', false, { sensorTiltDeg: levelAtShot, reference }); else showError(reference === 'card' ? 'The photo could not be taken. Try the card camera again or use Measure on screen.' : 'The photo could not be taken. Use "Upload a photo".');
 }
 
 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
   liveBtn.hidden = false;
-  liveBtn.addEventListener('click', startLive);
+  liveBtn.addEventListener('click', () => startLive());
+  $('#card-camera').hidden = false;
+  liveCardBtn.addEventListener('click', () => cardConfirm.showModal());
+  $('#card-start').addEventListener('click', () => { cardConfirm.close(); startLive('card'); });
   $('#liveCancel').addEventListener('click', stopLive);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !liveEl.hidden) stopLive(); });
   window.addEventListener('pagehide', stopLive);
@@ -316,7 +350,7 @@ if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
 // The result takes the place of the instructions, so it is visible without scrolling.
 // One tap from any result to the next photo: upload, live check, or back to the start screen.
 const HAS_CAMERA = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-const BAR = `<div class="res-bar"><label class="btn primary" for="file">Upload photo</label>${HAS_CAMERA ? '<button class="btn ghost" type="button" data-live>Live check</button>' : ''}<button class="btn ghost" type="button" data-back>Start over</button></div>`;
+const BAR = `<div class="res-bar"><label class="btn primary" for="file">Upload photo</label>${HAS_CAMERA ? '<button class="btn ghost" type="button" data-live>Live check (printed marker)</button>' : '' }<button class="btn ghost" type="button" data-back>Start over</button></div>`;
 function showResult(html) {
   out.innerHTML = html;
   out.hidden = false;
@@ -362,6 +396,7 @@ function drawOverlay(canvas, res, view) {
     path(o.marker); ctx.lineWidth = lw; ctx.strokeStyle = '#00b386'; ctx.stroke();
     if (!view.close) { const low = o.marker.reduce((a, b) => (b[1] > a[1] ? b : a)); const cx = o.marker.reduce((s2, p) => s2 + p[0], 0) / 4; label('20 mm scale', [cx, low[1] + 6 / s], '#007a5c'); }
   }
+  if (o.card && !view.close) { path(o.card); ctx.lineWidth = lw; ctx.strokeStyle = '#00b386'; ctx.stroke(); }
   if (o.inner) {
     path(o.inner); ctx.lineWidth = view.close ? Math.max(1.5, lw * 0.6) : lw; ctx.strokeStyle = '#e6007a'; ctx.stroke();
     if (o.diameterLine) {
@@ -383,7 +418,7 @@ function viewsHtml(res) {
     <figure><canvas id="ovMain"></canvas><figcaption>Your photo with what was detected</figcaption></figure>
     ${hasInner ? '<figure><canvas id="ovClose"></canvas><figcaption>Close-up: the pink line should sit on the ring\'s inner edge</figcaption></figure>' : ''}
   </div>
-  <p class="legend"><span><i style="background:#00b386"></i>scale reference (20 mm marker)</span>${hasInner ? `<span><i style="background:#e6007a"></i>${res.status === 'ok' ? 'detected inner boundary and diameter' : 'best circle found (not accepted)'}</span>` : ''}${res.overlay.candidates ? '<span><i style="background:#e08a00"></i>ring candidates</span>' : ''}</p>`;
+  <p class="legend"><span><i style="background:#00b386"></i>scale reference (${res.reference === 'card' ? 'bank-size card' : '20 mm marker'})</span>${hasInner ? `<span><i style="background:#e6007a"></i>${res.status === 'ok' ? 'detected inner boundary and diameter' : 'best circle found (not accepted)'}</span>` : ''}${res.overlay.candidates ? '<span><i style="background:#e08a00"></i>ring candidates</span>' : ''}</p>`;
 }
 
 function paintViews(res) {
@@ -458,13 +493,33 @@ function meterHtml() {
 }
 
 function render(res) {
+  if (res.reference === 'card') {
+    let html = BAR;
+    if (res.status === 'ok') {
+      const u = Math.ceil(res.uncertaintyMm * 10) / 10;
+      const sz = sizeFor(res.diameterMm, u);
+      html += `<div class="verdict ok"><div class="ico">✓</div><div><h3>Estimated inner diameter</h3>
+        <p class="big">≈ ${fmt(res.diameterMm)} mm <small>± ${fmt(u)} mm (estimated)</small></p>
+        <p class="fine">Camera beta. Assumes a standard-size card and a flat ring. Repeat the measurement and check the seller’s chart before ordering.</p></div></div>`;
+      if (sz.inRange) html += `<div class="sizes"><div class="size"><div class="k">ISO size range</div><div class="v">${sz.iso.low === sz.iso.high ? sz.iso.low : `${sz.iso.low}–${sz.iso.high}`}</div></div>
+        <div class="size"><div class="k">US / Canada range ≈</div><div class="v">${sz.us.low === sz.us.high ? sz.us.low : `${sz.us.low}–${sz.us.high}`}</div></div></div>`;
+    } else {
+      html += `<div class="verdict retake"><div class="ico">↻</div><div><h3>Retake needed</h3><p>${esc(res.reasons[0].fix ?? 'The card and ring could not be confirmed.')}</p></div></div>`;
+    }
+    if (res.overlay.card) html += viewsHtml(res);
+    showResult(html);
+    paintViews(res);
+    out.focus({ preventScroll: true });
+    window.__lastResult = res;
+    return;
+  }
   document.querySelectorAll('#sizeTable tr.hit').forEach((r) => r.classList.remove('hit'));
   let html = BAR;
   if (res.status === 'ok') {
     const u = res.uncertaintyMm;
     const sz = sizeFor(res.diameterMm, res.uncertaintyMm);
-    const isoRange = sz.iso.low === sz.iso.high ? 'uncertainty stays within this size' : `likely range ${sz.iso.low}–${sz.iso.high}`;
-    const usRange = sz.us.low === sz.us.high ? 'uncertainty stays within this size' : `likely range ${sz.us.low}–${sz.us.high}`;
+    const isoRange = sz.iso.low === sz.iso.high ? 'uncertainty stays within this size' : `likely range ${sz.iso.low === sz.iso.high ? sz.iso.low : `${sz.iso.low}–${sz.iso.high}`}`;
+    const usRange = sz.us.low === sz.us.high ? 'uncertainty stays within this size' : `likely range ${sz.us.low === sz.us.high ? sz.us.low : `${sz.us.low}–${sz.us.high}`}`;
     html += `<div class="verdict ok"><div class="ico">✓</div><div><h3>Inner diameter</h3>
       <p class="big">${fmt(res.diameterMm, 2)} mm <small>± ${fmt(u, 2)} mm</small></p>
       <p class="fine${res.printScale !== 1 ? ' adjusted' : ''}">${res.printScale !== 1 ? `Adjusted for your sheet: check line ${fmt(res.printScale * 100)} mm instead of 100.` : 'Estimated uncertainty. Assumes the check line on the sheet measured 100 mm.'}</p></div></div>`;

@@ -28,6 +28,10 @@ try {
   // Test screen mode even with the photo engine unavailable.
   await phone.route('**/vendor/opencv.js', route => route.abort());
   await phone.goto(url);
+  assert.equal(await phone.locator('#start').isVisible(), true);
+  assert.equal(await phone.locator('#screen').isVisible(), false);
+  await phone.getByRole('link', { name: /No-printer measurement/ }).click();
+  assert.equal(await phone.locator('#start').isVisible(), false);
   assert.equal(await phone.locator('#screen-fit').isVisible(), false);
   await phone.getByRole('button', { name: 'Calibrate with a card' }).click();
   assert.equal(await phone.getByRole('radio', { name: 'Upright card (short edge)' }).isChecked(), true);
@@ -94,7 +98,7 @@ try {
   await phone.keyboard.press('Escape');
   await phone.locator('#cal-dialog').waitFor({ state: 'hidden' });
   const landscape = await browser.newPage({ viewport: { width: 568, height: 300 } });
-  await landscape.goto(url);
+  await landscape.goto(url + '/#screen');
   await landscape.getByRole('button', { name: 'Calibrate with a card' }).click();
   await landscape.getByRole('radio', { name: 'Upright card (short edge)' }).check();
   await landscape.getByRole('button', { name: 'Make the guide shorter (large step)' }).click();
@@ -104,7 +108,7 @@ try {
   await landscape.getByRole('button', { name: 'Make ring circle larger' }).click();
   await landscape.getByRole('button', { name: 'Exit fitting' }).click();
   const desktop = await browser.newPage({ viewport: { width: 1280, height: 720 } });
-  await desktop.goto(url);
+  await desktop.goto(url + '/#screen');
   await desktop.getByRole('button', { name: 'Calibrate with a card' }).click();
   assert.equal(await desktop.getByRole('radio', { name: 'Sideways card (long edge)' }).isChecked(), true);
   assert.equal((await desktop.locator('#cal-line').boundingBox()).width, 324);
@@ -116,13 +120,20 @@ try {
 
   const photo = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await photo.goto(url);
-  await photo.getByRole('link', { name: 'Try a sample photo' }).click();
-  await photo.getByRole('button', { name: 'Measure sample ring' }).click();
+  assert.ok(await photo.locator('#start').evaluate((section) => Boolean(section.compareDocumentPosition(document.querySelector('#screen')) & Node.DOCUMENT_POSITION_FOLLOWING)));
+  await photo.getByRole('link', { name: /No-printer measurement/ }).click();
+  assert.equal(new URL(photo.url()).hash, '#screen');
+  await photo.getByRole('link', { name: /Photo measurement/ }).click();
+  assert.equal(new URL(photo.url()).hash, '#start');
+  await photo.getByRole('link', { name: 'More samples' }).click();
+  assert.equal(new URL(photo.url()).hash, '#samples');
+  await photo.getByRole('button', { name: 'Try a sample photo' }).click();
   await photo.waitForFunction(() => window.__lastResult?.status === 'ok', null, { timeout: 30000 });
   assert.ok(Math.abs(await photo.evaluate(() => window.__lastResult.diameterMm) - 18.80) < .15);
   assert.equal(await photo.locator('#screen').isVisible(), false);
   await photo.getByRole('button', { name: 'Start over' }).click();
-  assert.equal(await photo.locator('#screen').isVisible(), true);
+  assert.equal(await photo.locator('#start').isVisible(), true);
+  assert.equal(await photo.locator('#screen').isVisible(), false);
   console.log('PASS: calibration geometry, match/size, nudge, viewport reset, recalibration and no-print sample photo.');
 } finally {
   if (browser) await browser.close();

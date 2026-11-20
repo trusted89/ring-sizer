@@ -114,14 +114,14 @@ export function applyH(H, x, y) {
   return [(H[0] * x + H[1] * y + H[2]) / w, (H[3] * x + H[4] * y + H[5]) / w];
 }
 
-function invert3(m) {
+export function invert3(m) {
   const [a, b, c, d, e, f, g, h, i] = m;
   const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g;
   const det = a * A + b * B + c * C;
   return [A, -(b * i - c * h), b * f - c * e, B, a * i - c * g, -(a * f - c * d), C, -(a * h - b * g), a * e - b * d].map(v => v / det);
 }
 
-function mul3(a, b) {
+export function mul3(a, b) {
   const r = new Array(9);
   for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++)
     r[i * 3 + j] = a[i * 3] * b[j] + a[i * 3 + 1] * b[3 + j] + a[i * 3 + 2] * b[6 + j];
@@ -320,7 +320,7 @@ function refineMarker(gray, w, h, quadIn) {
 }
 
 // Local scale and tilt from the plane->image homography at plane point (x, y).
-function localGeometry(Hp2i, x, y) {
+export function localGeometry(Hp2i, x, y) {
   const e = 0.5;
   const px = applyH(Hp2i, x + e, y), mx = applyH(Hp2i, x - e, y);
   const py = applyH(Hp2i, x, y + e), my = applyH(Hp2i, x, y - e);
@@ -334,12 +334,14 @@ function localGeometry(Hp2i, x, y) {
 
 // ---------- ring ----------
 
-function findHoleCandidates(cv, coarseRgba, Hi2pCoarse, coarsePxPerMm, paperRef, debug) {
-  const R = CONFIG.searchRadiusMm;
+export function findHoleCandidates(cv, coarseRgba, Hi2pCoarse, coarsePxPerMm, paperRef, debug, region = {}) {
+  const R = region.radius ?? CONFIG.searchRadiusMm;
+  const [originX, originY] = region.origin ?? [10, 10];
+  const [maskX0, maskY0, maskX1, maskY1] = region.mask ?? [-3, -3, 23, 23];
   const S = Math.max(2.5, Math.min(coarsePxPerMm, 6)); // rectified px per mm
   const N = Math.round(2 * R * S);
   // plane (mm) -> rectified px: u = (x - (10 - R)) * S
-  const T = [S, 0, -(10 - R) * S, 0, S, -(10 - R) * S, 0, 0, 1];
+  const T = [S, 0, -(originX - R) * S, 0, S, -(originY - R) * S, 0, 0, 1];
   const M = mul3(T, Hi2pCoarse);
   const Mmat = cv.matFromArray(3, 3, cv.CV_64F, M);
   const rect = new cv.Mat(), valid = new cv.Mat();
@@ -375,7 +377,7 @@ function findHoleCandidates(cv, coarseRgba, Hi2pCoarse, coarsePxPerMm, paperRef,
   const mask = new cv.Mat(N, N, cv.CV_8UC1);
   const rd = rect.data, gd = g.data, bd = bg.data, vd = valid.data, md = mask.data;
   const refChroma = paperRef.chroma;
-  const m0 = Math.round((R - 10 - 3) * S), m1 = Math.round((R + 10 + 3) * S);
+  const rectPoint = (x, y) => new cv.Point(Math.round((R+x-originX)*S), Math.round((R+y-originY)*S));
   // Mask of everything darker than `level` x paper brightness, or clearly coloured.
   const buildMask = (level, closeMm) => {
     for (let i = 0, p = 0; i < N * N; i++, p += 4) {
@@ -386,7 +388,7 @@ function findHoleCandidates(cv, coarseRgba, Hi2pCoarse, coarsePxPerMm, paperRef,
       md[i] = (gd[i] / b < level || chroma - refChroma > 0.16) ? 255 : 0;
     }
     // erase marker (with margin) so it is never a ring candidate
-    cv.rectangle(mask, new cv.Point(m0, m0), new cv.Point(m1, m1), new cv.Scalar(0), -1);
+    cv.rectangle(mask, rectPoint(maskX0, maskY0), rectPoint(maskX1, maskY1), new cv.Scalar(0), -1);
     const ck = Math.max(3, Math.round(closeMm * S) | 1);
     const ckernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(ck, ck));
     cv.morphologyEx(mask, mask, cv.MORPH_CLOSE, ckernel);
@@ -407,7 +409,7 @@ function findHoleCandidates(cv, coarseRgba, Hi2pCoarse, coarsePxPerMm, paperRef,
         const ratio = Math.min(e.size.width, e.size.height) / Math.max(e.size.width, e.size.height);
         if (circ > 0.72 && ratio > 0.8) {
           found.push({
-            cx: e.center.x / S + (10 - R), cy: e.center.y / S + (10 - R),
+            cx: e.center.x / S + (originX - R), cy: e.center.y / S + (originY - R),
             r: (e.size.width + e.size.height) / 4 / S, circ, ratio,
           });
         }
@@ -429,7 +431,7 @@ function findHoleCandidates(cv, coarseRgba, Hi2pCoarse, coarsePxPerMm, paperRef,
     if (cands.length) break;
   }
   rect.delete(); valid.delete(); g.delete(); bg.delete(); mask.delete();
-  cands.sort((a, b) => Math.hypot(a.cx - 10, a.cy - 10) - Math.hypot(b.cx - 10, b.cy - 10));
+  cands.sort((a, b) => Math.hypot(a.cx - originX, a.cy - originY) - Math.hypot(b.cx - originX, b.cy - originY));
   return cands;
 }
 
@@ -543,7 +545,7 @@ function ransacCircle(pts, tol, seed) {
 }
 
 // Radial edge search on the full-resolution image, sampled through the homography.
-function refineInnerBoundary(gray, w, h, Hp2i, cand, pxPerMm) {
+export function refineInnerBoundary(gray, w, h, Hp2i, cand, pxPerMm) {
   let model = { cx: cand.cx, cy: cand.cy, r: cand.r };
   let out = null;
   const nRays = 240;
@@ -601,7 +603,7 @@ function refineInnerBoundary(gray, w, h, Hp2i, cand, pxPerMm) {
 // Approximate camera pose from the homography, ASSUMING a typical phone main-camera
 // focal length (about 0.72 x the long image side, i.e. 24-26 mm equivalent).
 // Used only for guidance and the uncertainty estimate, never for the scale itself.
-function approxPose(Hp2i, W, H) {
+export function approxPose(Hp2i, W, H) {
   const f = 0.72 * Math.max(W, H), cx = W / 2, cy = H / 2;
   const col = (i) => [(Hp2i[i] - cx * Hp2i[6 + i]) / f, (Hp2i[3 + i] - cy * Hp2i[6 + i]) / f, Hp2i[6 + i]];
   const a1 = col(0), a2 = col(1), a3 = col(2);

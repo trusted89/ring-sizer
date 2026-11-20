@@ -257,3 +257,25 @@ html.calibration-open { overflow: hidden; overscroll-behavior: none; }
 }
 
 .locked-ring-stage { -webkit-touch-callout: none; }
+
+.live-card-edges { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.live-card-edges[hidden], .live.card-mode .live-target { display:none; }
+.live-card-edges polygon { fill:none; stroke:#fff; stroke-width:2; vector-effect:non-scaling-stroke; }
+.live-card-edges #liveCardRing { stroke:#ff73b6; }
+.live.good .live-card-edges #liveCardQuad { stroke:#2fd08f; }
+
+.mode-links .btn { flex-direction: column; align-items: flex-start; gap: 0; padding: 7px 12px; }
+.mode-links small { display: block; font-weight: 450; font-size: .75rem; }
+body:has(#screen:target, #card-camera:target) .mode-links .mode-photo { background: transparent; color: var(--accent); border-color: var(--accent); }
+body:has(#screen:target, #card-camera:target) .mode-links .mode-screen { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.photo-quick-sample { background: #edf5ef; border: 1px solid #cfdfd4; border-radius: 9px; padding: 10px 12px; margin-bottom: 13px; }
+.photo-quick-sample a { font-size: .85rem; margin-inline-start: .5rem; }
+#start, #samples { scroll-margin-top: 1rem; }
+@supports selector(body:has(#screen:target)) {
+  body:not(:has(#screen:target, #card-camera:target)) #screen { display: none; }
+  body:has(#screen:target, #card-camera:target) :is(#start, #samples, .reference) { display: none; }
+  body:not(:has(#samples:target)) #samples { display: none; }
+  #start, #samples, #screen { scroll-margin-top: 5rem; }
+}
+
+.camera-beta-option { margin-top: 1.2rem; padding-top: 1rem; border-top: 1px solid var(--line); }

@@ -12,6 +12,10 @@ class Element extends EventTarget {
   files = [];
   style = {};
   focus() {}
+  setAttribute() {}
+  toggleAttribute() {}
+  showModal() { this.open = true; }
+  close() { this.open = false; }
   getContext() { return { drawImage() {}, getImageData() { return {}; } }; }
 }
 const elements = new Map();
@@ -82,6 +86,21 @@ await flush();
 assert.equal(stopped, 1);
 assert.equal(get('#live').hidden, true);
 assert.equal(get('#liveVideo').srcObject, null);
+field.value = '69';
+field.dispatchEvent(new Event('input'));
+const priorCam = releaseCamera;
+click('#liveCardBtn');
+assert.equal(get('#card-confirm').open, true);
+assert.equal(releaseCamera, priorCam, 'camera not started until card type confirmation');
+click('#card-start');
+assert.equal(get('#card-confirm').open, false);
+assert.notEqual(releaseCamera, priorCam, 'paper scale error must not block confirmed card mode');
+assert.equal(get('#live').hidden, false);
+assert.equal(get('#liveShot').disabled, true, 'card path blocks premature capture');
+click('#liveCancel');
+releaseCamera({getTracks:()=>[{stop:()=>stopped++}]});
+await flush();
+assert.equal(stopped, 2);
 releaseEngine();
 await flush();
 console.log('PASS: invalid print scale isolates user photos, latest input wins, and a cancelled late camera stream is stopped.');
