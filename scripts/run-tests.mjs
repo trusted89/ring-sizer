@@ -12,6 +12,13 @@ import { sizeFor } from '../public/sizing.js';
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MAX_SIDE = 4096; // same cap as the browser
+// Fixture regression guard, not a field accuracy guarantee: 0.5 mm is
+// roughly 1.6 ISO sizes. Require both a capped error and coverage by the
+// measurement's own uncertainty so a widened uncertainty cannot hide drift.
+const FIXTURE_MAX_ERROR_MM = 0.5;
+const accepts = (r, truth) => r.status === 'ok' && Number.isFinite(r.diameterMm)
+  && Number.isFinite(r.uncertaintyMm) && r.uncertaintyMm >= 0
+  && Math.abs(r.diameterMm - truth) <= Math.min(FIXTURE_MAX_ERROR_MM, r.uncertaintyMm);
 
 async function loadCv() {
   let cv = require('@techstark/opencv-js');
@@ -46,22 +53,29 @@ for (const row of truth) {
     const e = Math.abs(r.diameterMm - t);
     return { est: r.diameterMm.toFixed(2), err: e.toFixed(2), unc: '±' + r.uncertaintyMm.toFixed(2), within: e <= r.uncertaintyMm ? 'yes' : 'NO', size: 'ISO ' + sizeFor(r.diameterMm, r.uncertaintyMm).iso.label };
   };
-  if (res.status === 'ok') ({ est, err, unc, within, size } = report(res, truths[0]));
-  else if (res.status === 'retake') actual = 'retake: ' + res.reasons.map(r => r.code).join('+');
+  let accurate = false;
+  if (res.status === 'ok') {
+    accurate = truths.length === 1 && accepts(res, truths[0]);
+    ({ est, err, unc, within, size } = report(res, truths[0]));
+  } else if (res.status === 'retake') actual = 'retake: ' + res.reasons.map(r => r.code).join('+');
   else if (res.status === 'choose') {
     // exercise the confirmation path: select each candidate in turn
-    const parts = res.overlay.candidates.map((_, i) => {
-      const r = measure(cv, img, { ...opts, select: i });
-      if (r.status !== 'ok') return { est: r.status, err: '-', unc: '', within: '', size: '' };
-      const t = truths.reduce((a, b) => Math.abs(b - r.diameterMm) < Math.abs(a - r.diameterMm) ? b : a);
-      return report(r, t);
-    });
+    const chosen = res.overlay.candidates.map((_, i) => measure(cv, img, { ...opts, select: i }));
+    // Match sorted estimates one-to-one to sorted ground truth, so duplicate
+    // detections cannot both earn credit against the same true ring.
+    const matches = chosen.map((r, i) => ({ r, i })).sort((a, b) => a.r.diameterMm - b.r.diameterMm);
+    const orderedTruth = [...truths].sort((a, b) => a - b);
+    const aligned = new Map(matches.map(({ i }, rank) => [i, orderedTruth[rank]]));
+    accurate = chosen.length === orderedTruth.length && chosen.every((r, i) => accepts(r, aligned.get(i)));
+    const parts = chosen.map((r, i) => r.status === 'ok' && Number.isFinite(aligned.get(i))
+      ? report(r, aligned.get(i)) : { est: r.status, err: '-', unc: '', within: '', size: '' });
     est = parts.map(p => p.est).join(' / '); err = parts.map(p => p.err).join(' / ');
     unc = parts.map(p => p.unc).join(' / '); within = parts.map(p => p.within).join(' / '); size = parts.map(p => p.size).join(' / ');
     actual = `choose (${parts.length} rings)`;
   }
   const want = row.expected === 'retake' ? `retake: ${row.expected_reason}` : row.expected;
-  const pass = row.expected === 'measure' ? res.status === 'ok' : row.expected === 'choose' ? res.status === 'choose' : actual === want;
+  const pass = row.expected === 'measure' ? res.status === 'ok' && accurate
+    : row.expected === 'choose' ? res.status === 'choose' && accurate : actual === want;
   if (!pass) failures++;
   lines.push(`| ${row.file.split('/').pop()} | ${row.kind} | ${want} | ${actual} | ${row.expected === 'retake' ? '-' : row.true_inner_diameter_mm.replace('|', ' / ')} | ${est} | ${err} | ${unc} | ${within} | ${size} | ${res.timingMs.total.toFixed(0)} | ${pass ? 'pass' : 'FAIL'} |`);
   if (verbose) console.log(row.file, JSON.stringify({ checks: res.checks, timing: res.timingMs, u: res.uncertaintyTerms }, (k, v) => typeof v === 'number' ? +v.toFixed(3) : (k === 'edgePoints' ? undefined : v)));

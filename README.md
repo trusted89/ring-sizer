@@ -2,6 +2,11 @@
 
 A phone-friendly web page that estimates a ring's **inner diameter** from one photograph. The ring lies flat beside a printed 20 mm square marker. The user uploads the photo and never types a diameter or calibrates by hand. The page shows the detected inner boundary, the scale reference, the diameter in millimetres with an uncertainty, and the ring size, or it asks for a retake and says why.
 
+
+The local screen-mode update adds a separate no-printer option. Lay a standard ISO/IEC 7810 ID-1 bank card (85.60 mm wide) flat against the screen, match its long edge to the two calibration marks, and confirm. Remove the card, place an existing round ring on the display and resize the circle until it matches the ring’s inner edge. Use the same display and zoom; a detected scaling or width change resets calibration. This is an estimate from a physical screen match, not from a photo or a replacement for a jeweller’s measurement. A very narrow screen, a nonstandard card, raised settings, or a distorted ring can make the method unsuitable.
+
+Sample photos need no printing because their marker is already in the image. Your own unscaled photo still needs a known reference for measurement. The screen method does not scan the card or access the camera and does not derive a statistical uncertainty range.
+
 Live demo: <https://ring-sizer.pages.dev>
 
 Video walkthrough (under 3 minutes): <https://drive.google.com/file/d/10jJlqQ8lcBSExDmhz7iuj-H3GvyDMpP5/view?usp=sharing>
@@ -13,6 +18,9 @@ npm install          # OpenCV.js, sharp (tests only)
 npm run vendor       # copies OpenCV.js into public/vendor (already committed)
 npx serve public     # or: npm run dev  (Cloudflare Pages, via wrangler)
 npm test             # runs the measurement code over test-set/ and writes test-set/results.md
+node scripts/dev/screen-unit.mjs # dependency-free calibration and zoom-reset checks
+node scripts/dev/photo-flow-unit.mjs # dependency-free async input and camera guards
+npm run test:screen  # UI smoke tests; set CHROMIUM_PATH if Chromium is not at /usr/bin/chromium
 ```
 
 There is no build step and no backend. `public/` is the whole site.
@@ -47,7 +55,7 @@ npm run synth        # synthetic test photos
 | Scatter of the agreeing edge | ≤ 0.12 mm RMS | Retake: edge not clear |
 | More than one candidate | — | Ask which ring |
 
-All limits live in `CONFIG` at the top of `public/measure.js`.
+All limits live in `CONFIG` at the top of `public/measure.js`. The fixture suite additionally checks diameter error within both 0.50 mm and the reported model uncertainty, and matches ambiguous selections one-to-one to the fixture rings. This is a regression test for these fixtures, not a claim of accuracy on other rings or photos. Invalid print correction blocks personal photos and live capture until corrected/cleared, but never applies to the built-in samples.
 
 ### Live check (beta)
 

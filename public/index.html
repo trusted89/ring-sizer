@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Ring Sizer: measure a ring from a photo</title>
-  <meta name="description" content="Estimate a ring's inner diameter from one photo with a printed 20 mm marker. Runs on your device.">
+  <title>Ring Sizer: measure an existing ring</title>
+  <meta name="description" content="Estimate a ring's inner diameter on a calibrated screen or from a photo with a printed marker. Runs on your device.">
   <meta name="theme-color" content="#f6f4ef">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%231d5c4d' stroke-width='5'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
@@ -13,13 +13,54 @@
   <header class="top">
     <div class="wrap">
       <p class="brand"><span class="ring-mark" aria-hidden="true"></span> Ring Sizer <span class="tag">prototype</span></p>
-      <h1>Measure a ring's inner diameter from one photo</h1>
-      <p class="lede">You get the diameter, an honest uncertainty and the ring size, or a clear request to retake.</p>
+      <h1>Measure an existing ring</h1>
+      <p class="lede">Use the screen without a printer, or measure from a photo with a printed marker.</p>
     </div>
   </header>
 
   <main class="wrap">
+    <nav class="mode-links" aria-label="Measurement options">
+      <a class="btn primary" href="#screen">Measure on screen</a>
+      <a class="btn ghost" href="#start">Photo with printed marker</a>
+      <a class="btn ghost" href="#samples">Try a sample photo</a>
+    </nav>
+    <section class="card screen" id="screen" aria-labelledby="screen-title">
+      <p class="eyebrow">NO PRINTER · NO PHOTO</p>
+      <h2 id="screen-title">Measure on screen</h2>
+      <p>Use a standard bank card or ID and a ring that fits. Nothing gets scanned or uploaded.</p>
+      <h3>1. Calibrate this screen</h3>
+      <p>Keep your usual browser zoom. Hold the long edge of a standard 85.60&nbsp;mm card flat against the screen, with the two end marks at its outer edges. Adjust until they line up.</p>
+      <div class="screen-track" id="cal-stage" aria-hidden="true">
+        <div id="cal-line"></div>
+      </div>
+      <label class="screen-label" for="cal-width">Adjust the line to match your card</label>
+      <div class="screen-controls">
+        <button class="btn ghost small" type="button" data-nudge="cal-width" data-step="-1" aria-label="Shorten calibration line">−</button>
+        <input type="range" id="cal-width" min="100" max="500" value="320" step="1">
+        <button class="btn ghost small" type="button" data-nudge="cal-width" data-step="1" aria-label="Lengthen calibration line">+</button>
+      </div>
+      <p class="fine">If the card will not fit, use a larger screen. Do not use a photo of a card or a nonstandard card.</p>
+      <button id="cal-confirm" class="btn primary" type="button">My card edges line up</button>
+      <p id="cal-status" class="fine" role="status"></p>
+      <div id="screen-fit" hidden>
+        <h3>2. Match the inside of your ring</h3>
+        <p>Remove the card. Lay the ring flat on the screen, look directly down, and resize the circle until the colored area just fills the opening. Match the <strong>inside edge</strong>, not the metal outside. Use a plain round ring that can rest flat; do not press it into the screen.</p>
+        <div class="screen-track ring-track" aria-hidden="true"><div id="screen-circle"></div></div>
+        <label class="screen-label" for="screen-diameter">Adjust the circle to match the ring opening</label>
+        <div class="screen-controls">
+          <button class="btn ghost small" type="button" data-nudge="screen-diameter" data-step="-1" aria-label="Make ring circle smaller">−</button>
+          <input type="range" id="screen-diameter" min="12" max="26" value="17.5" step="0.1">
+          <button class="btn ghost small" type="button" data-nudge="screen-diameter" data-step="1" aria-label="Make ring circle larger">+</button>
+        </div>
+        <button id="ring-confirm" class="btn primary" type="button">The circle fits</button>
+        <p class="screen-reading" id="screen-reading" aria-live="polite"></p>
+        <p class="fine">This is a manual estimate, not the photo method’s uncertainty model. Repeat the match and check the seller’s size chart before ordering.</p>
+      </div>
+      <noscript><p>Screen measurement needs JavaScript.</p></noscript>
+    </section>
     <section id="start" class="card start" aria-label="How to measure a ring">
+      <h2>Photo with printed marker</h2>
+      <p>For this method, print a marker to establish scale. An uncalibrated photo cannot reveal millimetres.</p>
       <ol class="flow">
         <li>
           <span class="num" aria-hidden="true">1</span>
@@ -81,16 +122,17 @@
           </div>
         </li>
       </ol>
-      <div class="samples">
-        <p class="fine">No sheet yet? Try a <strong>synthetic</strong> sample photo (computer-generated). It runs through the same measurement code as your own photo.</p>
+      <p class="fine privacy">Your photo is measured on your device and is not uploaded anywhere.</p>
+    </section>
+    <section class="card samples" id="samples" aria-labelledby="sample-title">
+      <h2 id="sample-title">Try a sample photo</h2>
+        <p class="fine"><strong>No printing or upload needed.</strong> These computer-generated photos already contain a marker and run through the same photo measurement code.</p>
         <p class="btn-row">
-          <button class="btn ghost small" data-sample="samples/synthetic-02-ring-h3-tilt4.jpg">Ring, slight tilt</button>
+          <button class="btn ghost small" data-sample="samples/synthetic-02-ring-h3-tilt4.jpg">Measure sample ring</button>
           <button class="btn ghost small" data-sample="samples/synthetic-06-two-rings.jpg">Two rings (ambiguous)</button>
           <button class="btn ghost small" data-sample="samples/synthetic-07-steep-angle.jpg">Steep angle (unsupported)</button>
           <button class="btn ghost small" data-sample="samples/synthetic-08-out-of-focus.jpg">Out of focus (unsupported)</button>
         </p>
-      </div>
-      <p class="fine privacy">The photo is measured on your device and is not uploaded anywhere. You never type a diameter or set the scale by hand.</p>
     </section>
 
     <section id="result" class="card result" hidden aria-live="polite" tabindex="-1"></section>
@@ -161,5 +203,6 @@
   </footer>
 
   <script type="module" src="app.js"></script>
+  <script type="module" src="screen-sizing.js"></script>
 </body>
 </html>

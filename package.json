@@ -4,6 +4,7 @@
   "description": "Estimate a ring's inner diameter from a photo with a printed 20 mm marker",
   "scripts": {
     "test": "node scripts/run-tests.mjs",
+    "test:screen": "node scripts/dev/screen-check.mjs",
     "test:verbose": "node scripts/run-tests.mjs -v",
     "synth": "python3 scripts/synth.py",
     "sheet": "python3 scripts/make_sheet.py",

@@ -170,3 +170,20 @@ table#sizeTable { border-collapse: collapse; width: 100%; font: .85rem/1.3 var(-
 #sizeTable th { position: sticky; top: 0; background: var(--card); font-family: system-ui, sans-serif; font-size: .78rem; }
 #sizeTable tr.hit td { background: var(--ok-bg); font-weight: 700; }
 .foot { color: var(--muted); font-size: .8rem; padding-bottom: 32px; }
+
+.mode-links { display: flex; gap: .65rem; flex-wrap: wrap; padding: 1rem 0; }
+.screen { scroll-margin-top: 1rem; }
+.screen h3 { margin: 1.2rem 0 .4rem; }
+.screen-label { display: block; font-weight: 650; margin-top: .6rem; }
+.screen-track { box-sizing: border-box; min-height: 56px; width: 100%; display: grid; place-items: center; background: #fff; border: 1px solid #d9d4c7; border-radius: .6rem; }
+#cal-line { box-sizing: border-box; width: 0; height: 26px; border: solid #1d5c4d; border-width: 0 1px; background: linear-gradient(#1d5c4d,#1d5c4d) center / 100% 2px no-repeat; }
+.screen-controls { display: flex; gap: .6rem; align-items: center; margin: .5rem 0 .75rem; }
+.screen-controls input { flex: 1; min-width: 0; accent-color: #1d5c4d; min-height: 42px; }
+.screen-controls .btn { min-width: 44px; min-height: 44px; }
+.ring-track { min-height: 180px; }
+#screen-circle { box-sizing: border-box; border-radius: 50%; background: #1d5c4d; }
+.screen-reading { font-weight: 700; }
+.has-result .mode-links, .has-result #screen, .has-result #samples { display: none; }
+@media (max-width: 480px) {
+  .screen-track { margin-inline: -13px; width: calc(100% + 26px); }
+}

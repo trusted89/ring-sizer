@@ -45,22 +45,25 @@ try {
 // printed sheet, not the photo or the ring, and is only needed when the sheet was resized.
 const lineInput = $('#lineMm'), lineMsg = $('#lineMsg');
 let printScale = 1;
+let printScaleValid = true;
 function setLine(v, save) {
   const n = parseFloat(v);
-  if (v === '' || !Number.isFinite(n)) { printScale = 1; lineMsg.textContent = ''; lineMsg.className = 'fine'; }
-  else if (n < 70 || n > 130) { printScale = 1; lineMsg.textContent = 'Enter a length between 70 and 130 mm. Outside that the sheet must be reprinted.'; lineMsg.className = 'fine fail'; }
+  const badInput = lineInput.validity.badInput;
+  printScaleValid = !badInput && (v === '' || (Number.isFinite(n) && n >= 70 && n <= 130));
+  if (!badInput && v === '') { printScale = 1; lineMsg.textContent = ''; lineMsg.className = 'fine'; }
+  else if (!printScaleValid) { lineMsg.textContent = 'Enter a length between 70 and 130 mm. Outside that the sheet must be reprinted.'; lineMsg.className = 'fine fail'; }
   else {
     printScale = n / 100;
     const pct = Math.abs(n - 100);
     lineMsg.textContent = pct < 0.05 ? 'Sheet is at 100%. No adjustment.' : `Sheet is ${fmt(pct)}% too ${n > 100 ? 'large' : 'small'}. Results are adjusted for it.`;
     lineMsg.className = pct < 0.05 ? 'fine' : 'fine adjusted';
   }
-  if (save) { try { printScale === 1 ? localStorage.removeItem('ringSizer.lineMm') : localStorage.setItem('ringSizer.lineMm', String(n)); } catch { /* storage unavailable */ } }
+  if (save) { try { !printScaleValid || printScale === 1 ? localStorage.removeItem('ringSizer.lineMm') : localStorage.setItem('ringSizer.lineMm', String(n)); } catch { /* storage unavailable */ } }
 }
 lineInput.addEventListener('input', () => setLine(lineInput.value.trim(), true));
 try {
   const saved = localStorage.getItem('ringSizer.lineMm');
-  if (saved) { lineInput.value = saved; setLine(saved, false); if (printScale !== 1) $('#printFix').open = true; }
+  if (saved) { lineInput.value = saved; setLine(saved, false); if (!printScaleValid || printScale !== 1) $('#printFix').open = true; }
 } catch { /* storage unavailable */ }
 
 // ---------- sizing table ----------
@@ -69,28 +72,46 @@ tbody.innerHTML = tableRows().map((r) =>
   `<tr data-iso="${r.iso}"><td>${r.iso}</td><td>${fmt(r.diameterMm, 2)}</td><td>${fmt(r.lowMm, 2)} – ${fmt(r.highMm, 2)}</td><td>${r.us}</td></tr>`).join('');
 
 // ---------- input ----------
-let current = null; // { canvas, imageData, decodeMs, name }
+let current = null;
+let photoEpoch = 0;
+function beginPhoto() {
+  stopLive();
+  current = null;
+  window.__lastResult = null;
+  return ++photoEpoch;
+}
+function printScaleError() {
+  showStart();
+  $('#printFix').open = true;
+  lineInput.focus();
+  lineMsg.textContent = 'Correct the check line (70–130 mm), or clear it if you printed and verified it at 100%.';
+  lineMsg.className = 'fine fail';
+}
 
 fileInput.addEventListener('change', () => { const f = fileInput.files[0]; if (f) handleBlob(f, f.name); fileInput.value = ''; });
 document.querySelectorAll('[data-sample]').forEach((b) => b.addEventListener('click', async () => {
+  const job = beginPhoto();
   showBusy('Fetching sample photo…');
   try {
     const res = await fetch(b.dataset.sample);
     if (!res.ok) throw new Error('Sample photo could not be loaded.');
-    handleBlob(await res.blob(), `${b.textContent.trim()} (synthetic sample)`, true);
-  } catch (e) { showError(e.message); }
+    await handleBlob(await res.blob(), `${b.textContent.trim()} (synthetic sample)`, true, null, job);
+  } catch (e) { if (job === photoEpoch) showError(e.message); }
 }));
 
 async function decode(blob) {
   let src;
   try { src = await createImageBitmap(blob, { imageOrientation: 'from-image' }); }
   catch {
-    src = await new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error('This file is not a photo the browser can read. Use a JPEG or PNG.'));
-      img.src = URL.createObjectURL(blob);
-    });
+    const url = URL.createObjectURL(blob);
+    try {
+      src = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('This file is not a photo the browser can read. Use a JPEG or PNG.'));
+        img.src = url;
+      });
+    } finally { URL.revokeObjectURL(url); }
   }
   const sw = src.width || src.naturalWidth, sh = src.height || src.naturalHeight;
   const k = Math.min(1, MAX_SIDE / Math.max(sw, sh));
@@ -102,23 +123,28 @@ async function decode(blob) {
   return { canvas, imageData: ctx.getImageData(0, 0, canvas.width, canvas.height) };
 }
 
-async function handleBlob(blob, name, isSample = false, fromLive = null) {
+async function handleBlob(blob, name, isSample = false, fromLive = null, job = beginPhoto()) {
+  if (job !== photoEpoch) return;
+  if (!isSample && !printScaleValid) { printScaleError(); return; }
+  const scale = isSample ? 1 : printScale;
   showBusy('Measuring…');
   try {
     const t0 = performance.now();
     const { canvas, imageData } = await decode(blob);
-    current = { canvas, imageData, decodeMs: performance.now() - t0, name, isSample, fromLive };
-    await run();
-  } catch (e) { showError(e.message || String(e)); }
+    if (job !== photoEpoch) return;
+    current = { canvas, imageData, decodeMs: performance.now() - t0, name, isSample, fromLive, scale };
+    await run(undefined, job, current);
+  } catch (e) { if (job === photoEpoch) showError(e.message || String(e)); }
 }
 
-async function run(select) {
+async function run(select, job, measurement) {
   const cv = await cvReady;
   await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))); // let the spinner paint
+  if (job !== photoEpoch || measurement !== current) return;
   const t0 = performance.now();
   // Sample photos are rendered at nominal size, so the sheet correction does not apply to them.
   const res = measure(cv, current.imageData, {
-    select, printScale: current.isSample ? 1 : printScale,
+    select, printScale: current.scale,
     sensorTiltDeg: current.fromLive && current.fromLive.sensorTiltDeg !== null ? current.fromLive.sensorTiltDeg : undefined,
   });
   current.measureMs = performance.now() - t0;
@@ -135,7 +161,8 @@ async function run(select) {
 const LIVE = { minCm: 16, maxCm: 38, minPhotoPxPerMm: 6.5, maxTiltDeg: 9, maxRingOff: 0.12, everyMs: 220, maxSide: 960, greenAfter: 2, shootAfter: 5 };
 const liveEl = $('#live'), liveVideo = $('#liveVideo'), liveMsg = $('#liveMsg'), liveInfo = $('#liveInfo');
 const liveBtn = $('#liveBtn'), liveShotBtn = $('#liveShot'), liveLevel = $('#liveLevel'), liveDot = $('#liveDot');
-let liveStream = null, liveTimer = null, liveGood = 0, liveTaking = false;
+let liveStream = null, liveTimer = null, liveGood = 0, liveTaking = false, cameraEpoch = 0;
+const stopTracks = (stream) => stream?.getTracks().forEach((track) => track.stop());
 const liveCanvas = document.createElement('canvas');
 
 // The phone's own orientation sensor, where there is one: a bubble level. Lying flat with
@@ -170,10 +197,11 @@ function liveAdvice(a, previewScale) {
   return { state: 'good', text: 'Good. Hold still…', info };
 }
 
-async function liveTick() {
-  if (!liveStream || liveTaking) return;
+async function liveTick(session) {
+  if (session !== cameraEpoch || !liveStream || liveTaking) return;
   try {
     const cv = await cvReady;
+    if (session !== cameraEpoch || !liveStream || liveTaking) return;
     const vw = liveVideo.videoWidth, vh = liveVideo.videoHeight;
     if (vw && vh) {
       const k = Math.min(1, LIVE.maxSide / Math.max(vw, vh));
@@ -192,60 +220,85 @@ async function liveTick() {
       liveShotBtn.classList.toggle('ready', good);
       if (liveGood >= LIVE.shootAfter) { liveShot(); return; } // position held for about a second: take it
     }
-  } catch (e) { liveMsg.textContent = 'Live check stopped working. Cancel and use "Upload a photo".'; liveMsg.className = 'live-msg'; return; }
-  if (liveStream && !liveTaking) liveTimer = setTimeout(liveTick, LIVE.everyMs);
+  } catch (e) { if (session !== cameraEpoch) return; liveMsg.textContent = 'Live check stopped working. Cancel and use "Upload a photo".'; liveMsg.className = 'live-msg'; return; }
+  if (session === cameraEpoch && liveStream && !liveTaking) liveTimer = setTimeout(() => liveTick(session), LIVE.everyMs);
 }
 
 async function startLive() {
+  if (!printScaleValid) { printScaleError(); return; }
+  stopLive();
+  photoEpoch++; // a new camera session supersedes pending photo work
+  const session = cameraEpoch;
+  liveShotBtn.disabled = true;
   liveEl.hidden = false; liveEl.classList.remove('good'); liveGood = 0; liveTaking = false; orient = null; liveLevel.hidden = true;
   liveMsg.textContent = 'Starting the camera…'; liveMsg.className = 'live-msg wait'; liveInfo.textContent = '';
   // Level sensor: some browsers ask for permission, and only from a tap like this one.
   try {
     if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') await DeviceOrientationEvent.requestPermission();
   } catch { /* no sensor: the angle estimated from the marker is used instead */ }
+  if (session !== cameraEpoch) return;
   window.addEventListener('deviceorientation', onOrient);
   try {
-    liveStream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } } });
-    liveVideo.srcObject = liveStream;
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } } });
+    if (session !== cameraEpoch) { stopTracks(stream); return; }
+    liveStream = stream;
+    liveVideo.srcObject = stream;
     await liveVideo.play();
+    if (session !== cameraEpoch) return;
+    liveShotBtn.disabled = false;
     // keep refocusing while the phone moves, where the camera allows it
-    try { await liveStream.getVideoTracks()[0].applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch { /* fixed or automatic focus */ }
-    liveTick();
+    try { await stream.getVideoTracks()[0].applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch { /* fixed or automatic focus */ }
+    if (session === cameraEpoch) liveTick(session);
   } catch (e) {
+    if (session !== cameraEpoch) return;
+    window.removeEventListener('deviceorientation', onOrient);
+    stopTracks(liveStream);
     liveStream = null;
+    liveVideo.srcObject = null;
     liveMsg.textContent = 'The camera could not be opened. Cancel and use "Upload a photo".'; liveMsg.className = 'live-msg';
   }
 }
 
 function stopLive() {
+  cameraEpoch++;
+  liveShotBtn.disabled = true;
   clearTimeout(liveTimer);
   window.removeEventListener('deviceorientation', onOrient);
-  if (liveStream) liveStream.getTracks().forEach((t) => t.stop());
+  stopTracks(liveStream);
   liveStream = null; liveVideo.srcObject = null; liveEl.hidden = true; liveEl.classList.remove('good');
 }
 
 async function liveShot() {
   if (!liveStream || liveTaking) return;
+  const session = cameraEpoch;
   liveTaking = true;
+  liveShotBtn.disabled = true;
   clearTimeout(liveTimer);
   const levelAtShot = sensorTilt();
   liveMsg.textContent = 'Taking the photo…'; liveMsg.className = `live-msg ${liveEl.classList.contains('good') ? 'good' : 'wait'}`;
   let blob = null;
   // Full-resolution still where the browser offers it; otherwise the preview frame at its own size.
   if ('ImageCapture' in window) {
-    const cap = new ImageCapture(liveStream.getVideoTracks()[0]);
+    let cap;
     try {
+      cap = new ImageCapture(liveStream.getVideoTracks()[0]);
       const pc = await cap.getPhotoCapabilities();
+      if (session !== cameraEpoch) return;
       blob = await cap.takePhoto({ imageWidth: pc.imageWidth.max, imageHeight: pc.imageHeight.max });
     } catch { blob = null; }
-    if (!blob) { try { blob = await cap.takePhoto(); } catch { blob = null; } }
+    if (session !== cameraEpoch) return;
+    if (!blob && cap) { try { blob = await cap.takePhoto(); } catch { blob = null; } }
   }
-  if (!blob) {
+  if (session !== cameraEpoch) return;
+  if (!blob && liveVideo.videoWidth && liveVideo.videoHeight) {
     const c = document.createElement('canvas');
     c.width = liveVideo.videoWidth; c.height = liveVideo.videoHeight;
-    c.getContext('2d').drawImage(liveVideo, 0, 0);
-    blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.95));
+    try {
+      c.getContext('2d').drawImage(liveVideo, 0, 0);
+      blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.95));
+    } catch { blob = null; }
   }
+  if (session !== cameraEpoch) return;
   stopLive();
   if (blob) handleBlob(blob, 'Photo from live check', false, { sensorTiltDeg: levelAtShot }); else showError('The photo could not be taken. Use "Upload a photo".');
 }
@@ -254,6 +307,8 @@ if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
   liveBtn.hidden = false;
   liveBtn.addEventListener('click', startLive);
   $('#liveCancel').addEventListener('click', stopLive);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !liveEl.hidden) stopLive(); });
+  window.addEventListener('pagehide', stopLive);
   liveShotBtn.addEventListener('click', liveShot);
 }
 
@@ -269,6 +324,7 @@ function showResult(html) {
   window.scrollTo(0, 0);
 }
 function showStart() {
+  beginPhoto();
   document.body.classList.remove('has-result');
   out.hidden = true;
   out.innerHTML = '';
@@ -279,7 +335,7 @@ out.addEventListener('click', (ev) => {
   else if (ev.target.closest('[data-live]')) startLive();
 });
 function showBusy(msg) {
-  showResult(`<div class="busy"><div class="spin"></div><p style="margin:0">${esc(msg)}</p></div>`);
+  showResult(`<div class="busy"><div class="spin"></div><p style="margin:0">${esc(msg)}</p><button class="btn ghost small" type="button" data-back>Cancel</button></div>`);
 }
 function showError(msg) {
   showResult(`${BAR}<div class="verdict retake"><div class="ico">!</div><div><h3>Something went wrong</h3><p>${esc(msg)}</p></div></div>`);
@@ -360,7 +416,13 @@ function paintViews(res) {
   }
 }
 
-function choose(i) { showBusy(`Measuring ring ${i + 1}…`); run(i); }
+function choose(i) {
+  if (!current) return;
+  const job = ++photoEpoch;
+  window.__lastResult = null;
+  showBusy(`Measuring ring ${i + 1}…`);
+  run(i, job, current).catch((e) => { if (job === photoEpoch) showError(e.message || String(e)); });
+}
 
 function checksHtml(res) {
   const c = res.checks, rows = [];
