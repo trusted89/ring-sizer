@@ -7,7 +7,7 @@
   <meta name="description" content="Estimate a ring's inner diameter on a calibrated screen, using a card with the camera, or from a photo with a printed marker. Runs on your device.">
   <meta name="theme-color" content="#f6f4ef">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%231d5c4d' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=two-modes-v1">
+  <link rel="stylesheet" href="styles.css?v=card-guides-v2">
 </head>
 <body>
   <header class="top">
@@ -124,7 +124,7 @@
         <p class="eyebrow">NO PRINTER · CAMERA BETA</p>
         <h3 id="card-camera-title">Measure with your camera (experimental)</h3>
         <p class="fine"><strong>Experimental:</strong> tested with simulated images, not yet validated on physical rings or phones. Use as a rough estimate only.</p>
-        <p>Place a ring and a standard bank-size card flat next to each other on a matte, light surface. Use the blank, dark side of the card. No card numbers or photos are uploaded.</p>
+        <p>Place a ring and a standard bank-size card flat on a light tabletop or a sheet of white paper, with the ring above the horizontal card. Use a dark, matte side with clear edges. Printing in the middle is fine. No card numbers or photos are uploaded.</p>
         <button class="btn primary" id="liveCardBtn" type="button">Use a card with the camera</button>
       </section>
     </section>
@@ -234,7 +234,7 @@
   <dialog id="card-confirm" class="cal-dialog" aria-labelledby="card-confirm-title">
     <div class="cal-panel">
       <div class="cal-heading"><h2 id="card-confirm-title">Set the card beside the ring</h2><form method="dialog"><button class="btn ghost" autofocus>Cancel</button></form></div>
-      <p>Use a standard bank-size card (85.60 × 53.98 mm) with a dark, matte, plain side facing up. Some cards and similarly shaped objects are different sizes. The camera can’t tell those apart.</p>
+      <p>Use a standard bank-size card (85.60 × 53.98 mm) with a dark, matte side and clearly visible edges. Some cards and similarly shaped objects are different sizes. The camera can’t tell those apart.</p>
       <p>Lay both objects flat with a small gap. Use the rear camera held directly above them, with no zoom. The card and the ring’s inner edge both need to be fully visible.</p>
       <button class="btn primary" id="card-start" type="button">My card is standard size. Start camera</button>
     </div>
@@ -243,6 +243,9 @@
     <div class="live-stage">
       <video id="liveVideo" playsinline muted></video>
       <div class="live-target" aria-hidden="true"></div>
+      <svg class="live-card-guide" id="liveCardGuide" preserveAspectRatio="xMidYMid meet" aria-hidden="true" hidden>
+        <circle id="liveGuideRing"></circle><rect id="liveGuideCard"></rect>
+      </svg>
       <svg class="live-card-edges" id="liveCardEdges" preserveAspectRatio="xMidYMid meet" aria-hidden="true" hidden>
         <polygon id="liveCardQuad"></polygon><polygon id="liveCardRing"></polygon>
       </svg>
@@ -262,7 +265,7 @@
     <p>Prototype. Uses OpenCV.js (Apache-2.0) for image operations; measurement logic, checks and interface are original work.</p>
   </footer>
 
-  <script type="module" src="app.js?v=two-modes-v1"></script>
+  <script type="module" src="app.js?v=card-guides-v2"></script>
   <script type="module" src="screen-sizing.js?v=fit-pad-v1"></script>
 </body>
 </html>

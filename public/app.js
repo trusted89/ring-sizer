@@ -1,6 +1,6 @@
 // Interface for the ring measurement prototype. All measurement logic lives in measure.js.
 import { measure, assessFrame, CONFIG } from './measure.js?v=two-modes-v1';
-import { CARD_HELP, measureCardRing } from './card-camera.js';
+import { CARD_HELP, cardViewfinder, measureCardRing } from './card-camera.js?v=card-guides-v2';
 import { sizeFor, tableRows, TABLE } from './sizing.js';
 
 const MAX_SIDE = 4096; // photos larger than this are downscaled before measuring
@@ -162,7 +162,22 @@ async function run(select, job, measurement) {
 const LIVE = { minCm: 16, maxCm: 38, minPhotoPxPerMm: 6.5, maxTiltDeg: 9, maxRingOff: 0.12, everyMs: 220, maxSide: 960, greenAfter: 2, shootAfter: 5 };
 const liveEl = $('#live'), liveVideo = $('#liveVideo'), liveMsg = $('#liveMsg'), liveInfo = $('#liveInfo');
 const liveCardBtn = $('#liveCardBtn'), cardConfirm = $('#card-confirm'), cardEdges = $('#liveCardEdges'), cardQuad = $('#liveCardQuad'), cardRing = $('#liveCardRing');
-let liveReference = 'printed', previousCard = null;
+const cardGuide = $('#liveCardGuide'), guideRing = $('#liveGuideRing'), guideCard = $('#liveGuideCard');
+let liveReference = 'printed', previousCard = null, guideFrame = '';
+function syncCardGuide() {
+  const w = liveVideo.videoWidth, h = liveVideo.videoHeight;
+  if (liveReference !== 'card' || liveEl.hidden || !liveStream || !w || !h) return;
+  const key = `${w}x${h}`;
+  if (key === guideFrame) return;
+  guideFrame = key;
+  cardGuide.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  const {circle, rect} = cardViewfinder(w,h);
+  for (const [k,v] of Object.entries(circle)) guideRing.setAttribute(k,v);
+  for (const [k,v] of Object.entries(rect)) guideCard.setAttribute(k,v);
+  cardGuide.removeAttribute('hidden');
+}
+liveVideo.addEventListener('resize', syncCardGuide);
+
 const liveBtn = $('#liveBtn'), liveShotBtn = $('#liveShot'), liveLevel = $('#liveLevel'), liveDot = $('#liveDot');
 let liveStream = null, liveTimer = null, liveGood = 0, liveTaking = false, cameraEpoch = 0;
 const stopTracks = (stream) => stream?.getTracks().forEach((track) => track.stop());
@@ -206,6 +221,7 @@ async function liveTick(session) {
     const cv = await cvReady;
     if (session !== cameraEpoch || !liveStream || liveTaking) return;
     const vw = liveVideo.videoWidth, vh = liveVideo.videoHeight;
+    syncCardGuide();
     if (vw && vh) {
       const k = Math.min(1, LIVE.maxSide / Math.max(vw, vh));
       liveCanvas.width = Math.round(vw * k); liveCanvas.height = Math.round(vh * k);
@@ -221,7 +237,7 @@ async function liveTick(session) {
         cardRing.setAttribute('points', r.map(p => p.join(',')).join(' '));
         if (a.status !== 'preview') {
           previousCard = null;
-          advice = { state: 'bad', text: CARD_HELP[a.reasons[0].code], info: 'Card and ring must both be fully visible' };
+          advice = { state: 'bad', text: CARD_HELP[a.reasons[0].code], info: 'Ring in the circle above the card. Leave a small gap.' };
         } else {
           const prev = previousCard;
           previousCard = { q, ringEdge: r, size: a.guideDiameterMm, scale: a.checks.pxPerMm };
@@ -275,6 +291,7 @@ async function startLive(reference = 'printed') {
     liveVideo.srcObject = stream;
     await liveVideo.play();
     if (session !== cameraEpoch) return;
+    syncCardGuide();
     liveShotBtn.disabled = reference === 'card';
     // keep refocusing while the phone moves, where the camera allows it
     try { await stream.getVideoTracks()[0].applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch { /* fixed or automatic focus */ }
@@ -296,7 +313,8 @@ function stopLive() {
   window.removeEventListener('deviceorientation', onOrient);
   stopTracks(liveStream);
   liveStream = null; liveVideo.srcObject = null; liveEl.hidden = true; liveEl.classList.remove('good', 'card-mode');
-  previousCard = null; cardEdges.toggleAttribute('hidden', true);
+  previousCard = null; guideFrame = '';
+  cardGuide.setAttribute('hidden', ''); cardEdges.toggleAttribute('hidden', true);
 }
 
 async function liveShot() {
