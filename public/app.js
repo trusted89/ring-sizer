@@ -1,6 +1,6 @@
 // Interface for the ring measurement prototype. All measurement logic lives in measure.js.
 import { measure, assessFrame, CONFIG } from './measure.js?v=two-modes-v1';
-import { CARD_HELP, cardViewfinder, measureCardRing } from './card-camera.js?v=card-guides-v2';
+import { CARD_HELP, CARD_TRACK_MAX_AGE_MS, canCaptureCard, enableContinuousFocus, measureCardRing, trackCardFrame } from './card-camera.js?v=endpoint-camera-v6';
 import { sizeFor, tableRows, TABLE } from './sizing.js';
 
 const MAX_SIDE = 4096; // photos larger than this are downscaled before measuring
@@ -162,21 +162,22 @@ async function run(select, job, measurement) {
 const LIVE = { minCm: 16, maxCm: 38, minPhotoPxPerMm: 6.5, maxTiltDeg: 9, maxRingOff: 0.12, everyMs: 220, maxSide: 960, greenAfter: 2, shootAfter: 5 };
 const liveEl = $('#live'), liveVideo = $('#liveVideo'), liveMsg = $('#liveMsg'), liveInfo = $('#liveInfo');
 const liveCardBtn = $('#liveCardBtn'), cardConfirm = $('#card-confirm'), cardEdges = $('#liveCardEdges'), cardQuad = $('#liveCardQuad'), cardRing = $('#liveCardRing');
-const cardGuide = $('#liveCardGuide'), guideRing = $('#liveGuideRing'), guideCard = $('#liveGuideCard');
-let liveReference = 'printed', previousCard = null, guideFrame = '';
-function syncCardGuide() {
-  const w = liveVideo.videoWidth, h = liveVideo.videoHeight;
-  if (liveReference !== 'card' || liveEl.hidden || !liveStream || !w || !h) return;
-  const key = `${w}x${h}`;
-  if (key === guideFrame) return;
-  guideFrame = key;
-  cardGuide.setAttribute('viewBox', `0 0 ${w} ${h}`);
-  const {circle, rect} = cardViewfinder(w,h);
-  for (const [k,v] of Object.entries(circle)) guideRing.setAttribute(k,v);
-  for (const [k,v] of Object.entries(rect)) guideCard.setAttribute(k,v);
-  cardGuide.removeAttribute('hidden');
+let liveReference = 'printed', cardTrack = null, cardExpiry = null, lastCardFrame = null;
+function clearCardTracking() {
+  cardTrack = null;
+  clearTimeout(cardExpiry);
+  cardQuad.setAttribute('points', ''); cardRing.setAttribute('points', '');
+  cardEdges.setAttribute('data-tracking', 'unconfirmed');
 }
-liveVideo.addEventListener('resize', syncCardGuide);
+function loseCardTracking() {
+  clearCardTracking();
+  liveShotBtn.disabled = true; liveShotBtn.classList.remove('ready'); liveEl.classList.remove('good');
+}
+liveVideo.addEventListener('resize', () => {
+  if (liveReference !== 'card' || !liveStream) return;
+  lastCardFrame = null; loseCardTracking();
+  liveMsg.textContent = 'Rechecking the camera view…'; liveMsg.className = 'live-msg wait'; liveInfo.textContent = '';
+});
 
 const liveBtn = $('#liveBtn'), liveShotBtn = $('#liveShot'), liveLevel = $('#liveLevel'), liveDot = $('#liveDot');
 let liveStream = null, liveTimer = null, liveGood = 0, liveTaking = false, cameraEpoch = 0;
@@ -221,36 +222,52 @@ async function liveTick(session) {
     const cv = await cvReady;
     if (session !== cameraEpoch || !liveStream || liveTaking) return;
     const vw = liveVideo.videoWidth, vh = liveVideo.videoHeight;
-    syncCardGuide();
     if (vw && vh) {
-      const k = Math.min(1, LIVE.maxSide / Math.max(vw, vh));
+      const frameTime = liveVideo.currentTime, frameKey = `${vw}x${vh}`;
+      if (liveReference === 'card' && lastCardFrame?.key === frameKey && lastCardFrame.time === frameTime) {
+        liveTimer = setTimeout(() => liveTick(session), 235);
+        return;
+      }
+      const k = Math.min(1, (liveReference === 'card' ? 1200 : LIVE.maxSide) / Math.max(vw, vh));
       liveCanvas.width = Math.round(vw * k); liveCanvas.height = Math.round(vh * k);
       const ctx = liveCanvas.getContext('2d', { willReadFrequently: true });
       ctx.drawImage(liveVideo, 0, 0, liveCanvas.width, liveCanvas.height);
       const image = ctx.getImageData(0, 0, liveCanvas.width, liveCanvas.height);
-      let advice;
       if (liveReference === 'card') {
+        const now = performance.now();
+        lastCardFrame = {key:frameKey,time:frameTime};
         const a = measureCardRing(cv, image, { confirmedStandardCard: true, preview: true });
-        const q = a.overlay.card ?? [], r = a.overlay.inner ?? [];
-        cardEdges.setAttribute('viewBox', `0 0 ${image.width} ${image.height}`);
-        cardQuad.setAttribute('points', q.map(p => p.join(',')).join(' '));
-        cardRing.setAttribute('points', r.map(p => p.join(',')).join(' '));
-        if (a.status !== 'preview') {
-          previousCard = null;
-          advice = { state: 'bad', text: CARD_HELP[a.reasons[0].code], info: 'Ring in the circle above the card. Leave a small gap.' };
-        } else {
-          const prev = previousCard;
-          previousCard = { q, ringEdge: r, size: a.guideDiameterMm, scale: a.checks.pxPerMm };
-          const still = !!prev && Math.abs(a.guideDiameterMm - prev.size) < .40 &&
-            Math.abs(a.checks.pxPerMm / prev.scale - 1) < .025 &&
-            q.every((p, i) => Math.hypot(p[0] - prev.q[i][0], p[1] - prev.q[i][1]) < image.width * .018) &&
-            r.every((p, i) => Math.hypot(p[0] - prev.ringEdge[i][0], p[1] - prev.ringEdge[i][1]) < image.width * .012);
-          advice = { state: still ? 'good' : 'bad', text: 'Both found. Hold the phone still…', info: 'Measuring only after the capture passes the full checks' };
-        }
-        liveShotBtn.disabled = advice.state !== 'good';
-      } else {
-        advice = liveAdvice(assessFrame(cv, image, { printScale }), k);
+        cardTrack = trackCardFrame(cardTrack,{...a,overlay:Object.fromEntries(Object.entries(a.overlay).map(([key,list]) =>
+          [key,list.map(([x,y]) => [x*vw/image.width,y*vh/image.height])]))},{width:vw,height:vh,time:now,frameTime});
+        // Analyze a downscaled frame, but map the overlay back to the exact
+        // uncropped video rectangle that object-fit:contain displays.
+        const points = list => list.map(p => p.join(',')).join(' ');
+        cardEdges.setAttribute('viewBox', `0 0 ${vw} ${vh}`);
+        cardEdges.setAttribute('data-tracking', cardTrack.state);
+        cardQuad.setAttribute('points', points(cardTrack.cardDraw));
+        cardRing.setAttribute('points', points(cardTrack.ringDraw));
+        const ready = canCaptureCard(cardTrack,performance.now()), valid = a.status === 'preview';
+        const label = cardTrack.state === 'both' ? 'Card and ring found.' :
+          cardTrack.state === 'card-only' ? 'Card found. Ring not confirmed.' :
+          cardTrack.state === 'card-hint' ? 'Possible card found. Its edges aren’t clear enough yet.' : 'Card and ring not confirmed.';
+        liveMsg.textContent = ready ? 'Card and ring ready. Take photo.' :
+          valid ? 'Both found. Hold still…' : CARD_HELP[a.reasons[0].code];
+        liveMsg.className = `live-msg ${ready ? 'good' : cardTrack.state !== 'unconfirmed' ? 'wait' : ''}`;
+        liveInfo.textContent = ready || valid ? 'The photo is checked again before showing a size.' : label;
+        liveEl.classList.toggle('good', ready);
+        liveShotBtn.classList.toggle('ready', ready);
+        liveShotBtn.disabled = !ready;
+        const observed = cardTrack;
+        clearTimeout(cardExpiry);
+        cardExpiry = setTimeout(() => {
+          if (session !== cameraEpoch || liveTaking || cardTrack !== observed) return;
+          loseCardTracking();
+          liveMsg.textContent = 'Waiting for a fresh camera view…'; liveMsg.className = 'live-msg wait'; liveInfo.textContent = '';
+        }, Math.max(0,CARD_TRACK_MAX_AGE_MS-(performance.now()-now)));
+        liveTimer = setTimeout(() => liveTick(session), 235);
+        return;
       }
+      const advice = liveAdvice(assessFrame(cv, image, { printScale }), k);
       // a few good frames in a row before turning green, so it does not flicker
       liveGood = advice.state === 'good' ? liveGood + 1 : 0;
       const good = liveGood >= LIVE.greenAfter;
@@ -262,8 +279,8 @@ async function liveTick(session) {
       liveShotBtn.classList.toggle('ready', good);
       if (liveGood >= LIVE.shootAfter) { liveShot(); return; } // position held for about a second: take it
     }
-  } catch (e) { if (session !== cameraEpoch) return; liveMsg.textContent = liveReference === 'card' ? 'Card camera could not assess the frame. Cancel and try again.' : 'Live check stopped working. Cancel and use "Upload a photo".'; liveMsg.className = 'live-msg'; return; }
-  if (session === cameraEpoch && liveStream && !liveTaking) liveTimer = setTimeout(() => liveTick(session), liveReference === 'card' ? 400 : LIVE.everyMs);
+  } catch (e) { if (session !== cameraEpoch) return; if (liveReference === 'card') loseCardTracking(); liveMsg.textContent = liveReference === 'card' ? 'Card camera could not assess the frame. Cancel and try again.' : 'Live check stopped working. Cancel and use "Upload a photo".'; liveMsg.className = 'live-msg'; return; }
+  if (session === cameraEpoch && liveStream && !liveTaking) liveTimer = setTimeout(() => liveTick(session), liveReference === 'card' ? 235 : LIVE.everyMs);
 }
 
 async function startLive(reference = 'printed') {
@@ -271,7 +288,7 @@ async function startLive(reference = 'printed') {
   stopLive();
   photoEpoch++; // a new camera session supersedes pending photo work
   const session = cameraEpoch;
-  liveReference = reference; previousCard = null;
+  liveReference = reference; clearCardTracking();
   cardEdges.toggleAttribute('hidden', reference !== 'card');
   cardQuad.setAttribute('points', ''); cardRing.setAttribute('points', '');
   liveEl.classList.toggle('card-mode', reference === 'card');
@@ -291,10 +308,11 @@ async function startLive(reference = 'printed') {
     liveVideo.srcObject = stream;
     await liveVideo.play();
     if (session !== cameraEpoch) return;
-    syncCardGuide();
     liveShotBtn.disabled = reference === 'card';
-    // keep refocusing while the phone moves, where the camera allows it
-    try { await stream.getVideoTracks()[0].applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch { /* fixed or automatic focus */ }
+    // Let supported rear cameras continuously refocus without blocking preview
+    // or changing lenses, zoom, crop or manually forcing focal distance.
+    if (reference === 'card') void enableContinuousFocus(stream.getVideoTracks()[0]);
+    else { try { await stream.getVideoTracks()[0].applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch { /* default behavior */ } }
     if (session === cameraEpoch) liveTick(session);
   } catch (e) {
     if (session !== cameraEpoch) return;
@@ -313,12 +331,13 @@ function stopLive() {
   window.removeEventListener('deviceorientation', onOrient);
   stopTracks(liveStream);
   liveStream = null; liveVideo.srcObject = null; liveEl.hidden = true; liveEl.classList.remove('good', 'card-mode');
-  previousCard = null; guideFrame = '';
-  cardGuide.setAttribute('hidden', ''); cardEdges.toggleAttribute('hidden', true);
+  lastCardFrame = null; clearCardTracking(); cardEdges.toggleAttribute('hidden', true);
 }
 
 async function liveShot() {
   if (!liveStream || liveTaking) return;
+  if (liveReference === 'card' && (liveVideo.paused || !canCaptureCard(cardTrack,performance.now()) ||
+      cardTrack.frameKey !== `${liveVideo.videoWidth}x${liveVideo.videoHeight}` || liveStream.getVideoTracks()[0]?.muted)) return;
   const session = cameraEpoch;
   liveTaking = true;
   liveShotBtn.disabled = true;
@@ -355,7 +374,9 @@ async function liveShot() {
 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
   liveBtn.hidden = false;
   liveBtn.addEventListener('click', () => startLive());
-  // Hold the public card-camera entry until real-phone validation. Printed-marker live check stays available.
+  $('#card-camera').hidden = false;
+  liveCardBtn.addEventListener('click', () => cardConfirm.showModal());
+  $('#card-start').addEventListener('click', () => { cardConfirm.close(); startLive('card'); });
   $('#liveCancel').addEventListener('click', stopLive);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !liveEl.hidden) stopLive(); });
   window.addEventListener('pagehide', stopLive);

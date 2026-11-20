@@ -258,16 +258,13 @@ html.calibration-open { overflow: hidden; overscroll-behavior: none; }
 
 .locked-ring-stage { -webkit-touch-callout: none; }
 
-.live-card-edges, .live-card-guide { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
-.live-card-guide[hidden], .live-card-edges[hidden], .live.card-mode .live-target { display:none; }
-.live-card-guide circle, .live-card-guide rect {
-  fill: none; stroke: rgba(255,255,255,.88); stroke-width: 2;
-  stroke-dasharray: 7 5; vector-effect: non-scaling-stroke; filter: drop-shadow(0 1px 1px #000);
-}
-.live.good .live-card-guide { opacity: .40; }
-.live-card-edges polygon { fill:none; stroke:#fff; stroke-width:2; vector-effect:non-scaling-stroke; }
+.live-card-edges { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.live-card-edges[hidden], .live.card-mode .live-target { display:none; }
+.live-card-edges polygon { fill:none; stroke:#fff; stroke-width:2; vector-effect:non-scaling-stroke; filter:drop-shadow(0 1px 1px #000); }
+.live-card-edges[data-tracking="card-hint"] #liveCardQuad { stroke:#ffd482; stroke-dasharray: 6 4; opacity:.82; }
+.live-card-edges[data-tracking="card-only"] #liveCardQuad { stroke:#ffd482; }
 .live-card-edges #liveCardRing { stroke:#ff73b6; }
-.live.good .live-card-edges #liveCardQuad { stroke:#2fd08f; }
+.live.good .live-card-edges polygon { stroke:#2fd08f; }
 
 .mode-links .btn { flex-direction: column; align-items: flex-start; gap: 0; padding: 7px 12px; }
 .mode-links small { display: block; font-weight: 450; font-size: .75rem; }
