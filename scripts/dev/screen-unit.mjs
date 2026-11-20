@@ -1,7 +1,8 @@
 // Dependency-free screen state and geometry regression; browser smoke is test:screen.
 import assert from 'node:assert/strict';
 class Element extends EventTarget {
-  style = {};
+  style = { setProperty(key, value) { this[key] = value; } };
+  max = 26;
   classList = new Set();
   dataset = {};
   value = '';
@@ -17,7 +18,7 @@ class Element extends EventTarget {
   showModal() { this.open = true; }
   close() { this.open = false; this.dispatchEvent(new Event('close')); }
 }
-const ids = ['screen', 'cal-dialog', 'cal-stage', 'cal-line', 'cal-card-shape', 'cal-open', 'cal-cancel', 'cal-guide-note',
+const ids = ['screen', 'cal-dialog', 'ring-dialog', 'ring-stage', 'ring-space-note', 'ring-open', 'ring-exit', 'screen-last-reading', 'cal-stage', 'cal-line', 'cal-card-shape', 'cal-open', 'cal-cancel', 'cal-guide-note',
   'screen-diameter', 'ring-fit-title', 'screen-circle', 'screen-fit', 'cal-confirm', 'ring-confirm', 'cal-status', 'screen-reading'];
 const storage = new Map();
 globalThis.requestAnimationFrame = fn => fn();
@@ -76,27 +77,56 @@ dom['cal-dialog'].dispatchEvent(right);
 assert.equal(right.defaultPrevented, true);
 assert.equal(dom['cal-line'].style.width, '333px');
 click('cal-confirm');
-assert.ok(!classes.has('calibration-open'));
+assert.ok(classes.has('calibration-open'));
+assert.equal(dom['ring-dialog'].open, true);
 assert.ok(!dom['cal-card-shape'].classList.has('cal-cue-intro'));
-click('cal-open');
-assert.ok(!dom['cal-card-shape'].classList.has('cal-cue-intro'));
-click('cal-cancel');
 assert.equal(JSON.parse(storage.get(CALIBRATION_KEY)).at(-1).referenceMm, CARD_WIDTH_MM);
 assert.equal(dom['screen-fit'].hidden, false);
 assert.equal(dom['ring-fit-title'].focused, true);
-assert.equal(dom['ring-fit-title'].scrolled, true);
+assert.equal(dom['ring-fit-title'].scrolled, undefined);
+const ringTouch = new Event('touchmove', { cancelable: true });
+dom['ring-stage'].dispatchEvent(ringTouch);
+assert.equal(ringTouch.defaultPrevented, true);
+const pinch = Object.assign(new Event('touchmove', { cancelable: true }), { touches: [1, 2] });
+dom['ring-stage'].dispatchEvent(pinch);
+assert.equal(pinch.defaultPrevented, false);
+const ringWheel = new Event('wheel', { cancelable: true });
+dom['ring-stage'].dispatchEvent(ringWheel);
+assert.equal(ringWheel.defaultPrevented, true);
 input('screen-diameter', 20);
 assert.equal(dom['screen-circle'].style.width, circlePixels(20, 333) + 'px');
+const reservedHeight = dom['ring-stage'].style['--ring-maximum-px'];
+input('screen-diameter', 26);
+assert.equal(dom['ring-stage'].style['--ring-maximum-px'], reservedHeight);
+dom['ring-stage'].clientWidth = 80;
+input('screen-diameter', 26);
+assert.equal(dom['ring-confirm'].disabled, true);
+assert.equal(dom['screen-circle'].hidden, true);
+dom['ring-stage'].clientWidth = 360;
+input('screen-diameter', 20);
+assert.equal(dom['ring-confirm'].disabled, false);
 click('ring-confirm');
 assert.match(dom['screen-reading'].textContent, /20\.0 mm · ISO 63/);
+assert.equal(dom['ring-exit'].textContent, 'Done');
+click('ring-exit');
+assert.ok(!classes.has('calibration-open'));
+assert.equal(dom['screen-last-reading'].textContent, dom['screen-reading'].textContent);
+click('cal-open');
+assert.ok(!dom['cal-card-shape'].classList.has('cal-cue-intro'));
+click('cal-cancel');
+click('ring-open');
+assert.ok(dom['ring-dialog'].open);
 visualViewport.scale = 1.2;
 visualViewport.dispatchEvent(new Event('resize'));
 assert.equal(dom['screen-fit'].hidden, true);
+assert.equal(dom['ring-dialog'].open, false);
+assert.ok(!classes.has('calibration-open'));
 assert.equal(dom['screen-reading'].textContent, '');
 assert.match(dom['cal-status'].textContent, /screen or zoom changed/);
 const confirmed = JSON.parse(storage.get(CALIBRATION_KEY)).at(-1);
 const restored = await make('restored');
 assert.equal(restored.dom['screen-fit'].hidden, false);
+assert.equal(restored.dom['ring-dialog'].open, false);
 assert.equal(restored.dom['ring-fit-title'].focused, undefined);
 assert.equal(restored.dom['ring-fit-title'].scrolled, undefined);
 assert.match(restored.dom['cal-status'].textContent, /Saved calibration restored.*switching displays/);

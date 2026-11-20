@@ -13,6 +13,13 @@ export const circlePixels = (ringMm, linePx, referenceMm = CARD_WIDTH_MM) => rin
 function setupScreen() {
   const get = (id) => document.getElementById(id);
   const dialog = get('cal-dialog');
+  const fitDialog = get('ring-dialog');
+  const ringStage = get('ring-stage');
+  const ringSpace = get('ring-space-note');
+  const fitConfirm = get('ring-confirm');
+  const ringOpen = get('ring-open');
+  const previousReading = get('screen-last-reading');
+  const exitFitting = get('ring-exit');
   const stage = get('cal-stage');
   const line = get('cal-line');
   const card = get('cal-card-shape');
@@ -67,7 +74,8 @@ function setupScreen() {
   const applyCalibration = (value, saved = false) => {
     calibrated = value;
     diameter.value = '17.5';
-    reading.textContent = '';
+    reading.textContent = previousReading.textContent = '';
+    exitFitting.textContent = 'Exit fitting';
     status.textContent = (saved ? 'Saved calibration restored.' : 'Screen calibrated.') +
       ' Keep the same screen and zoom; recalibrate after switching displays.';
     fit.hidden = false;
@@ -90,12 +98,25 @@ function setupScreen() {
     if (calibrated) {
       const px = circlePixels(Number(diameter.value), calibrated.linePx, calibrated.referenceMm);
       circle.style.width = circle.style.height = px + 'px';
+      // Reserve room for the largest circle, so its center never shifts as it grows.
+      ringStage.style.setProperty('--ring-maximum-px', Math.ceil(circlePixels(Number(diameter.max), calibrated.linePx, calibrated.referenceMm) + 24) + 'px');
+      if (fitDialog.open) {
+        const room = px + 8 <= ringStage.clientWidth;
+        circle.hidden = !room;
+        ringSpace.hidden = room;
+        fitConfirm.disabled = !room;
+      }
     }
   };
   const invalidate = (why) => {
     calibrated = null;
     fit.hidden = true;
-    reading.textContent = '';
+    reading.textContent = previousReading.textContent = '';
+    if (fitDialog.open) {
+      fitDialog.close();
+      // On automatic exit the Measure ring opener is now hidden.
+      open.focus({ preventScroll: true });
+    }
     status.textContent = why;
     updateOpenLabel();
   };
@@ -122,6 +143,34 @@ function setupScreen() {
     }
     draw();
   };
+  const syncPageLock = () => {
+    if (dialog.open || fitDialog.open) document.documentElement.classList.add('calibration-open');
+    else document.documentElement.classList.remove('calibration-open');
+  };
+  const openFitting = () => {
+    checkGeometry();
+    if (!calibrated || calibrated.key !== geometry() || dialog.open || fitDialog.open) return;
+    fitDialog.showModal();
+    syncPageLock();
+    fitTitle.focus({ preventScroll: true });
+    draw();
+  };
+  ringOpen.addEventListener('click', openFitting);
+  exitFitting.addEventListener('click', () => fitDialog.close());
+  fitDialog.addEventListener('close', syncPageLock);
+  // The placement surface is deliberately noninteractive. Modifier-wheel
+  // browser zoom remains available; pinch zoom outside this surface is native.
+  for (const surface of [stage, ringStage]) {
+    surface.addEventListener('wheel', (event) => { if (!event.ctrlKey && !event.metaKey) event.preventDefault(); }, { passive: false });
+    surface.addEventListener('touchmove', (event) => { if ((event.touches?.length ?? 1) === 1) event.preventDefault(); }, { passive: false });
+  }
+  fitDialog.addEventListener('keydown', (event) => {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.target === diameter) return;
+    if (!['ArrowLeft', 'ArrowDown', 'ArrowRight', 'ArrowUp'].includes(event.key)) return;
+    event.preventDefault();
+    ['ArrowLeft', 'ArrowDown'].includes(event.key) ? diameter.stepDown() : diameter.stepUp();
+    diameter.dispatchEvent(new Event('input', { bubbles: true }));
+  });
   const adjust = (delta) => {
     checkGeometry();
     width += delta;
@@ -132,8 +181,8 @@ function setupScreen() {
     setReference(calibrated?.referenceMm ?? (window.innerWidth < DEFAULT_SHORT_VIEW_WIDTH ? CARD_SHORT_MM : CARD_WIDTH_MM));
     if (calibrated) width = calibrated.linePx;
     guide.textContent = DEFAULT_GUIDE;
-    document.documentElement.classList.add('calibration-open');
     dialog.showModal();
+    syncPageLock();
     if (!introShown) {
       introShown = true;
       card.classList.add('cal-cue-intro');
@@ -149,24 +198,21 @@ function setupScreen() {
     draw();
   });
   get('cal-cancel').addEventListener('click', () => dialog.close());
-  stage.addEventListener('wheel', (event) => { if (!event.ctrlKey) event.preventDefault(); }, { passive: false });
-  stage.addEventListener('touchmove', (event) => event.preventDefault(), { passive: false });
   dialog.addEventListener('close', () => {
     card.classList.remove('cal-cue-intro');
     lastStageWidth = null;
-    document.documentElement.classList.remove('calibration-open');
+    syncPageLock();
     const explicitMatch = confirmedOnClose;
     confirmedOnClose = null;
     checkGeometry();
     const saved = restoreFor(lastGeometry);
     if (explicitMatch?.key === lastGeometry) {
       applyCalibration(explicitMatch);
-      // Native dialogs restore focus to the opener. Reveal and focus the next
-      // step only after close/unlock, never during passive restoration.
+      // Wait for the native dialog close/focus return before opening its
+      // successor. Passive restores keep the inline Measure ring entry.
       requestAnimationFrame(() => {
-        if (dialog.open || fit.hidden || calibrated !== explicitMatch) return;
-        fitTitle.focus({ preventScroll: true });
-        fitTitle.scrollIntoView({ block: 'start' });
+        if (fit.hidden || calibrated !== explicitMatch) return;
+        openFitting();
       });
     } else if (!calibrated && saved) {
       applyCalibration(saved, true);
@@ -181,7 +227,8 @@ function setupScreen() {
     button.addEventListener('click', () => adjust(Number(button.dataset.adjust)));
   });
   diameter.addEventListener('input', () => {
-    reading.textContent = '';
+    reading.textContent = previousReading.textContent = '';
+    exitFitting.textContent = 'Exit fitting';
     checkGeometry();
   });
   document.querySelectorAll('[data-nudge]').forEach((button) => {
@@ -203,13 +250,14 @@ function setupScreen() {
     confirmedOnClose = value;
     dialog.close();
   });
-  get('ring-confirm').addEventListener('click', () => {
+  fitConfirm.addEventListener('click', () => {
     checkGeometry();
-    if (!calibrated || calibrated.key !== geometry()) return;
+    if (!fitDialog.open || fitConfirm.disabled || !calibrated || calibrated.key !== geometry()) return;
     const mm = Number(diameter.value);
     const sizes = sizeFor(mm);
-    reading.textContent = `Estimated inner diameter: ${mm.toFixed(1)} mm` +
+    reading.textContent = previousReading.textContent = `Estimated inner diameter: ${mm.toFixed(1)} mm` +
       (sizes.inRange ? ` · ISO ${sizes.iso.label} · US/Canada ≈ ${sizes.us.label}` : ' · Outside the sizing table');
+    exitFitting.textContent = 'Done';
   });
   window.addEventListener('resize', checkGeometry);
   viewport?.addEventListener('resize', checkGeometry);
