@@ -187,3 +187,34 @@ table#sizeTable { border-collapse: collapse; width: 100%; font: .85rem/1.3 var(-
 @media (max-width: 480px) {
   .screen-track { margin-inline: -13px; width: calc(100% + 26px); }
 }
+
+html { scrollbar-gutter: stable; }
+html.calibration-open { overflow: hidden; overscroll-behavior: none; }
+.cal-dialog {
+  box-sizing: border-box; border: 0; padding: 0; margin: 0;
+  width: 100%; max-width: none; height: 100%; max-height: none;
+  inset: 0; background: #fffdf8; color: var(--ink); overflow: auto; overscroll-behavior: contain;
+}
+.cal-panel { max-width: 680px; box-sizing: border-box; margin-inline: auto; padding: 12px 12px max(14px, env(safe-area-inset-bottom)); }
+.cal-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cal-heading h2 { margin: 0; }
+.cal-area {
+  width: 100%; box-sizing: border-box; border: 1px solid #d9d4c7; border-radius: 10px;
+  background: #fff; min-height: 205px; display: flex; align-items: center;
+  padding-inline: 7px; overflow: hidden; touch-action: none; user-select: none;
+}
+.cal-area #cal-line { flex: none; touch-action: none; }
+.cal-note { margin-block: 8px; font-size: .9rem; }
+.cal-steps { display: flex; gap: 8px; flex-wrap: wrap; margin-block: 8px 12px; }
+.cal-steps .btn, .cal-heading .btn { min-height: 44px; min-width: 44px; touch-action: manipulation; }
+@media (max-height: 500px) {
+  .cal-area { min-height: 130px; }
+  .cal-panel > p { margin-block: 6px; }
+}
+.cal-reference { padding: 5px 8px; margin: 8px 0 0; border: 1px solid #d9d4c7; border-radius: 8px; }
+.cal-reference legend { font-size: .86rem; font-weight: 650; }
+.cal-reference label { display: inline-flex; align-items: center; min-height: 34px; margin-inline: 4px 12px; gap: 4px; }
+.cal-area { align-items: flex-start; padding-top: 9px; }
+#cal-line { height: 14px; }
+
+#ring-fit-title { scroll-margin-top: 1rem; }

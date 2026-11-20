@@ -29,21 +29,11 @@
       <h2 id="screen-title">Measure on screen</h2>
       <p>Use a standard bank card or ID and a ring that fits. Nothing gets scanned or uploaded.</p>
       <h3>1. Calibrate this screen</h3>
-      <p>Keep your usual browser zoom. Hold the long edge of a standard 85.60&nbsp;mm card flat against the screen, with the two end marks at its outer edges. Adjust until they line up.</p>
-      <div class="screen-track" id="cal-stage" aria-hidden="true">
-        <div id="cal-line"></div>
-      </div>
-      <label class="screen-label" for="cal-width">Adjust the line to match your card</label>
-      <div class="screen-controls">
-        <button class="btn ghost small" type="button" data-nudge="cal-width" data-step="-1" aria-label="Shorten calibration line">−</button>
-        <input type="range" id="cal-width" min="100" max="500" value="320" step="1">
-        <button class="btn ghost small" type="button" data-nudge="cal-width" data-step="1" aria-label="Lengthen calibration line">+</button>
-      </div>
-      <p class="fine">If the card will not fit, use a larger screen. Do not use a photo of a card or a nonstandard card.</p>
-      <button id="cal-confirm" class="btn primary" type="button">My card edges line up</button>
+      <p>We start with a guide for a standard card. Since physical screen scale varies, check it once against your card.</p>
+      <button id="cal-open" class="btn primary" type="button">Calibrate with a card</button>
       <p id="cal-status" class="fine" role="status"></p>
       <div id="screen-fit" hidden>
-        <h3>2. Match the inside of your ring</h3>
+        <h3 id="ring-fit-title" tabindex="-1">2. Match the inside of your ring</h3>
         <p>Remove the card. Lay the ring flat on the screen, look directly down, and resize the circle until the colored area just fills the opening. Match the <strong>inside edge</strong>, not the metal outside. Use a plain round ring that can rest flat; do not press it into the screen.</p>
         <div class="screen-track ring-track" aria-hidden="true"><div id="screen-circle"></div></div>
         <label class="screen-label" for="screen-diameter">Adjust the circle to match the ring opening</label>
@@ -181,6 +171,31 @@
       </details>
     </section>
   </main>
+
+  <dialog id="cal-dialog" class="cal-dialog" aria-labelledby="cal-title" aria-describedby="cal-help">
+    <div class="cal-panel">
+      <div class="cal-heading">
+        <h2 id="cal-title">Match your card</h2>
+        <button id="cal-cancel" class="btn ghost small" type="button" autofocus>Cancel</button>
+      </div>
+      <p id="cal-help">Keep the card flat just below the marks so both stay visible. Line up its straight left edge with the fixed mark, then move the right mark to its straight right edge. Ignore the rounded corners.</p>
+      <fieldset class="cal-reference">
+        <legend>Which card edge runs left to right?</legend>
+        <label><input type="radio" name="cal-reference" value="53.98"> Short edge (phone)</label>
+        <label><input type="radio" name="cal-reference" value="85.6"> Long edge</label>
+      </fieldset>
+      <p class="cal-note" id="cal-guide-note" role="status">Only the right mark moves. Use the arrow keys for fine adjustment.</p>
+      <div class="cal-steps" aria-label="Adjust the right mark">
+        <button class="btn ghost small" type="button" data-adjust="-10" aria-label="Make the guide shorter (large step)">−−</button>
+        <button class="btn ghost small" type="button" data-adjust="-1" aria-label="Make the guide shorter (small step)">−</button>
+        <button class="btn ghost small" type="button" data-adjust="1" aria-label="Make the guide longer (small step)">+</button>
+        <button class="btn ghost small" type="button" data-adjust="10" aria-label="Make the guide longer (large step)">++</button>
+      </div>
+      <button id="cal-confirm" class="btn primary" type="button">Both card edges line up</button>
+      <p class="fine">Turn the card so the selected edge is horizontal. If it does not fit, use a larger screen. Don’t use a photo of a card.</p>
+      <div class="cal-area" id="cal-stage" aria-hidden="true"><div id="cal-line"></div></div>
+    </div>
+  </dialog>
 
   <div id="live" class="live" hidden role="dialog" aria-modal="true" aria-label="Live camera check">
     <div class="live-stage">
